@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>THE GLOBAL RUSH ARENA - Professional System</title>
+  
+  <!-- LIBRARIES -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- FIREBASE (cloud sync so both phones share the same bookings in real time) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    :root {
+        --background-color: #1a1a2e;
+        --primary-glass-bg: rgba(26, 26, 46, 0.85);
+        --secondary-glass-bg: rgba(26, 26, 46, 0.7);
+        --border-color: rgba(255, 255, 255, 0.15);
+        --text-primary: #e0e0e0;
+        --text-secondary: #a0a0a0;
+        --accent-color: #3498db;
+        --accent-hover: #2980b9;
+        --highlight-yellow: #f1c40f;
+        --success-color: #2ecc71;
+        --error-color: #e74c3c;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      min-height: 100vh;
+      background: var(--background-color);
+      color: var(--text-primary);
+      font-family: 'Roboto', sans-serif;
+      background-image: url('https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      transition: filter 0.3s ease;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: -1;
+    }
+    
+    /* When a tab is active, blur specific background elements if they are still visible (rare in this mode, but good for safety) */
+    body.blur-active > .container > *:not(.active-tab):not(.top-controls-right) {
+        /* In the new mode, we hide elements completely, but this handles transitions */
+        pointer-events: none;
+        user-select: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding-top: 20px;
+      position: relative;
+      min-height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* LOGO & HEADER GROUP */
+    .logo-header-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 30px;
+        margin-top: 40px;
+        z-index: 20;
+        transition: opacity 0.3s ease;
+    }
+    .arena-logo {
+        max-width: 150px;
+        max-height: 150px;
+        margin-bottom: 15px;
+        border-radius: 50%;
+        box-shadow: 0 0 20px rgba(52, 152, 219, 0.4);
+        display: none; /* Hidden by default until uploaded */
+        animation: fadeIn 0.5s ease;
+    }
+    h1 { 
+        margin: 0; 
+        font-size: 52px; 
+        text-align: center; 
+        text-transform: uppercase; 
+        letter-spacing: 3px; 
+        text-shadow: 3px 3px 10px rgba(0,0,0,0.5); 
+    }
+
+    /* CONTROLS */
+    .top-controls-right {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 100;
+    }
+    .top-controls-right button {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+    .icon-button { font-size: 24px; color: var(--text-primary); }
+    .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: var(--error-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .top-dashboard {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        width: 100%;
+        margin-bottom: 20px;
+        gap: 20px;
+        animation: fadeSlideIn 0.4s ease;
+    }
+    #liveClockContainer { text-align: left; }
+    #liveClock { font-size: 56px; font-weight: bold; color: var(--highlight-yellow); letter-spacing: 3px; text-shadow: 2px 2px 8px rgba(0,0,0,0.7); }
+    #liveStatusPanel {
+        margin-top: 15px;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+        max-height: 60px;
+        overflow: hidden;
+        transition: max-height 0.5s ease-in-out;
+    }
+    #liveStatusPanel:hover {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+    #liveStatusHeader {
+        display: flex;
+        align-items: center;
+        font-size: 1.5em;
+        font-weight: bold;
+        cursor: default;
+    }
+    #liveStatusHeader.live { color: var(--error-color); }
+    #liveStatusHeader.upcoming { color: var(--highlight-yellow); }
+    #liveStatusHeader.available { color: var(--success-color); }
+    .status-dot { height: 12px; width: 12px; border-radius: 50%; margin-right: 10px; }
+    .blinking-dot { background-color: var(--error-color); animation: blink 1s infinite; }
+    .static-dot { background-color: var(--highlight-yellow); }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    #liveStatusDetails { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); font-size: 0.95em; }
+    .status-tag { font-weight: bold; padding: 2px 6px; border-radius: 4px; color: white; }
+    .status-tag.verified { background-color: var(--success-color); }
+    .status-tag.unverified { background-color: var(--error-color); }
+    #scheduleBookmark {
+        width: 380px;
+        max-height: 115px;
+        overflow: hidden;
+        background: rgba(26, 26, 46, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        padding: 15px;
+        backdrop-filter: blur(10px);
+        transition: max-height 0.5s ease-in-out;
+    }
+    #scheduleBookmark:hover { max-height: 250px; overflow-y: auto; }
+    #scheduleBookmark::-webkit-scrollbar { width: 6px; }
+    #scheduleBookmark::-webkit-scrollbar-track { background: transparent; }
+    #scheduleBookmark::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 10px; }
+    #scheduleBookmark h3 { margin-top: 0; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; color: white; }
+    .schedule-slot { padding: 8px; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+    .schedule-slot:last-child { border-bottom: none; }
+    .schedule-slot.free { color: var(--success-color); }
+    .schedule-slot.booked { color: var(--error-color); }
+    .schedule-slot .details { font-size: 12px; color: var(--text-secondary); display: block; width: 100%; margin-top: 4px; }
+    .day-night-label { font-size: 0.7em; padding: 2px 5px; border-radius: 3px; background-color: rgba(0,0,0,0.2); margin-left: 8px; }
+    .schedule-slot .payment-status.paid { font-weight: bold; color: var(--success-color); }
+    .schedule-slot .payment-status.unpaid { font-weight: bold; color: var(--error-color); }
+    
+    .main-controls { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; transition: opacity 0.3s ease; }
+    .main-controls .top-controls { margin-bottom: 20px; display: flex; justify-content: center; gap: 20px; }
+    #bookNowBtn { 
+        font-size: 48px; 
+        padding: 30px 80px; 
+        font-weight: bold; 
+        margin-top: 20px; 
+        background: linear-gradient(145deg, #e74c3c, #c0392b);
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 8px 25px rgba(231, 76, 60, 0.3);
+        text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    }
+    #bookNowBtn:hover { 
+        background: linear-gradient(145deg, #c0392b, #a8231a);
+        box-shadow: 0 12px 30px rgba(192, 57, 43, 0.4);
+        transform: translateY(-3px);
+    }
+    button { 
+        padding: 12px 24px; 
+        font-size: 18px; 
+        background: rgba(52, 152, 219, 0.9);
+        backdrop-filter: blur(5px);
+        color: #fff; 
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 5px; 
+        cursor: pointer; 
+        transition: all 0.3s ease; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+    }
+    button:hover { 
+        background: rgba(41, 128, 185, 0.95);
+        border-color: rgba(255,255,255,0.3);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3); 
+        transform: translateY(-2px); 
+    }
+    
+    /* GLASS CONTAINERS */
+    #bookingForm, #bookingHistoryContainer, #arenaManagementContainer, #settingsContainer, #calendarViewContainer, #incomeAnalyticsContainer, #customerCRMContainer {
+      background: var(--primary-glass-bg);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      position: relative;
+      z-index: 50;
+      display: none;
+      margin: 20px auto;
+      padding: 25px;
+      max-width: 1200px;
+      width: 100%;
+      animation: fadeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .arena-feature-card, .income-card, .settings-section, .calendar-cell, .receipt-modal-content {
+      background: rgba(26, 26, 46, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    }
+    
+    .calendar-cell:hover {
+      background: rgba(52, 152, 219, 0.2);
+      border-color: var(--accent-color);
+    }
+    
+    .arena-feature-card:hover {
+      background: rgba(52, 152, 219, 0.15);
+      border-color: var(--accent-color);
+    }
+    
+    .form-group input, .form-group select {
+      background: rgba(10, 10, 20, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(4px);
+      color: var(--text-primary);
+    }
+    
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--accent-color);
+      background: rgba(20, 20, 40, 0.8);
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    @keyframes fadeSlideIn {
+      0% { opacity: 0; transform: translateY(25px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Calendar Styles */
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 15px; }
+    .calendar-day-header { text-align: center; font-weight: bold; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; }
+    .calendar-cell { background: rgba(26, 26, 46, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; min-height: 80px; display: flex; flex-direction: column; cursor: pointer; transition: 0.2s; }
+    .calendar-cell:hover { background: rgba(52, 152, 219, 0.2); border-color: var(--accent-color); }
+    .calendar-cell .day-number { font-weight: bold; margin-bottom: 5px; color: var(--highlight-yellow); }
+    .calendar-cell .booking-indicator { font-size: 11px; display: flex; align-items: center; gap: 3px; color: var(--text-secondary); }
+    .calendar-cell .booking-count { background: var(--accent-color); border-radius: 12px; padding: 2px 8px; color: white; display: inline-block; margin-top: 4px; }
+    .calendar-cell.past { opacity: 0.7; }
+    .calendar-cell.today { border: 2px solid var(--highlight-yellow); }
+    
+    /* Income Analytics */
+    .income-controls { display: flex; gap: 20px; align-items: center; margin-bottom: 30px; flex-wrap: wrap; }
+    .income-summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .income-card { background: rgba(26, 26, 46, 0.7); border-radius: 12px; padding: 22px; border-left: 6px solid var(--success-color); backdrop-filter: blur(10px); }
+    .income-card.paid { border-left-color: var(--success-color); background: rgba(46, 204, 113, 0.1); }
+    .income-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .income-table th { background: rgba(52, 152, 219, 0.2); padding: 12px; text-align: left; backdrop-filter: blur(4px); }
+    .income-table td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+    .badge-paid { background: var(--success-color); color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
+    .badge-unpaid { background: var(--error-color); color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
+    
+    /* Form and misc */
+    .form-row { display: flex; gap: 15px; margin-bottom: 10px; }
+    .form-group { flex: 1; text-align: left; margin-bottom: 10px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    .form-group input, .form-group select { 
+        padding: 12px; 
+        width: 100%; 
+        box-sizing: border-box; 
+        border-radius: 8px; 
+        border: 1px solid rgba(255,255,255,0.1); 
+        background: rgba(10, 10, 25, 0.7); 
+        color: var(--text-primary); 
+        font-size: 16px;
+        backdrop-filter: blur(4px);
+    }
+    .form-group input.invalid { border-color: var(--error-color); box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2); }
+    .error-message { color: var(--error-color); font-size: 14px; margin-top: 5px; display: none; height: 15px; }
+    .form-buttons { margin-top: 20px; text-align: center; }
+    .arena-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+    .arena-header h2 { margin: 0; color: var(--highlight-yellow); font-size: 1.8em; text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+    .back-button-top { background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 16px; border-radius: 5px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 5px; backdrop-filter: blur(5px); }
+    .back-button-top:hover { background: rgba(255,255,255,0.2); border-color: var(--accent-color); transform: translateX(-3px); }
+    .arena-management-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+    .arena-feature-card { background: rgba(26, 26, 46, 0.7); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.3s ease; backdrop-filter: blur(10px); height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .arena-feature-card:hover { background: rgba(52, 152, 219, 0.2); transform: translateY(-3px); border-color: var(--accent-color); }
+    .arena-feature-icon { font-size: 32px; margin-bottom: 10px; }
+    .arena-feature-card h3 { font-size: 1.1em; margin: 5px 0; color: var(--highlight-yellow); }
+    
+    /* Settings */
+    .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; margin-top: 20px; }
+    .settings-section { background: rgba(26, 26, 46, 0.7); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px); }
+    .settings-section h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; color: var(--highlight-yellow); }
+    .theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+    .theme-option { width: 40px; height: 40px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease; }
+    .theme-option:hover { transform: scale(1.1); border-color: white; }
+    .settings-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; flex-wrap: wrap; }
+    .settings-tab { padding: 8px 16px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); border-radius: 5px; cursor: pointer; transition: all 0.3s ease; font-size: 0.9em; backdrop-filter: blur(4px); }
+    .settings-tab.active { background: var(--accent-color); border-color: var(--accent-color); }
+    .settings-tab-content { display: none; }
+    .settings-tab-content.active { display: block; }
+    
+    /* Receipt */
+    #receiptModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); padding-top: 50px; backdrop-filter: blur(8px); animation: fadeSlideIn 0.3s; }
+    .receipt-modal-content { margin: auto; padding: 30px; width: 80%; max-width: 500px; text-align: center; background: var(--primary-glass-bg); border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(15px); box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    .receipt-icon { width: 80px; height: 80px; border-radius: 50%; margin: 20px auto; border-width: 4px; border-style: solid; }
+    .receipt-icon.success { border-color: var(--success-color); animation: scale-up 0.5s; }
+    .receipt-icon.pending { border-color: var(--highlight-yellow); }
+    #receiptContent { text-align: left; margin-top: 20px; padding: 20px; background-color: #fff; color: #000; border-radius: 5px; }
+    
+    /* Quick actions */
+    .quick-actions-panel { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 1000; }
+    .quick-action-btn { 
+        width: 50px; 
+        height: 50px; 
+        border-radius: 50%; 
+        background: rgba(26, 26, 46, 0.7);
+        border: 1px solid rgba(255,255,255,0.15); 
+        backdrop-filter: blur(10px); 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        cursor: pointer; 
+        transition: all 0.3s ease; 
+        font-size: 20px; 
+        color: var(--text-primary);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .quick-action-btn:hover {
+        background: rgba(52, 152, 219, 0.3);
+        transform: scale(1.1);
+        border-color: var(--accent-color);
+    }
+    .floating-stats { position: fixed; top: 100px; right: 20px; background: rgba(26,26,46,0.95); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; backdrop-filter: blur(12px); width: 220px; z-index: 999; animation: fadeSlideIn 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .refresh-indicator { position: fixed; bottom: 20px; right: 20px; background: var(--accent-color); color: white; padding: 10px 15px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; z-index: 1000; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+    .modal-content { background: var(--primary-glass-bg); border-radius: 16px; padding: 30px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(15px); animation: fadeSlideIn 0.3s; }
+    .batch-actions { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(26,26,46,0.95); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; backdrop-filter: blur(10px); display: none; gap: 10px; z-index: 1001; }
+    .batch-actions.active { display: flex; }
+    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(5px); }
+    .loading-spinner { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    /* Footer */
+    .arena-footer {
+        text-align: center;
+        margin-top: auto;
+        padding: 15px 10px 5px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        border-top: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(5px);
+        letter-spacing: 0.5px;
+        width: 100%;
+        position: relative;
+        bottom: 0;
+        left: 0;
+        background: transparent;
+        opacity: 0.85;
+        transition: opacity 0.2s;
+    }
+    .arena-footer:hover { opacity: 1; }
+    .arena-footer span.highlight { color: var(--highlight-yellow); font-weight: bold; }
+    .data-widget-badge {
+        background: rgba(26, 26, 46, 0.7);
+        padding: 4px 12px;
+        border-radius: 30px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 12px;
+        font-size: 12px;
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(4px);
+    }
+    
+    /* Booking history table */
+    #bookingHistory {
+        width: 100%;
+        border-collapse: collapse;
+        color: var(--text-primary);
+    }
+    #bookingHistory th {
+        background: rgba(52, 152, 219, 0.2);
+        padding: 12px;
+        text-align: left;
+        backdrop-filter: blur(4px);
+    }
+    #bookingHistory td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .action-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .verify-btn.verified { background: var(--success-color); }
+    .delete-btn { background: var(--error-color); }
+    .history-controls {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    #historyPartitionFilter {
+        display: flex;
+        gap: 6px;
+    }
+    #historyPartitionFilter button {
+        padding: 6px 14px;
+        font-size: 14px;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(4px);
+    }
+    #historyPartitionFilter button.active { background: var(--accent-color); }
+    #searchInput {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: rgba(10, 10, 25, 0.7);
+        color: var(--text-primary);
+        width: 200px;
+        backdrop-filter: blur(4px);
+    }
+    
+    /* Notifications list */
+    #notificationsList {
+        max-height: 400px;
+        overflow-y: auto;
+        color: var(--text-primary);
+    }
+    .notification-item {
+        padding: 15px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(26, 26, 46, 0.5);
+        backdrop-filter: blur(4px);
+    }
+    .notification-item.unread { background: rgba(52, 152, 219, 0.15); }
+    .notification-message { font-size: 14px; }
+    .notification-time { font-size: 11px; color: var(--text-secondary); }
+    .mark-read-btn { 
+        background: transparent; 
+        border: 1px solid var(--border-color); 
+        padding: 4px 8px; 
+        font-size: 12px;
+        backdrop-filter: blur(4px);
+    }
+    .separator-dot { color: var(--text-secondary); margin: 0 6px; }
+
+    /* --- NEW ADVANCED STYLES --- */
+    .chart-container {
+        background: rgba(26, 26, 46, 0.7);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 15px;
+        backdrop-filter: blur(10px);
+        position: relative;
+    }
+    .rank-gold { color: #f1c40f; font-weight: bold; text-shadow: 0 0 5px rgba(241, 196, 15, 0.5); }
+    .rank-silver { color: #bdc3c7; font-weight: bold; }
+    .rank-bronze { color: #cd7f32; font-weight: bold; }
+    #restoreFileInput { display: none; }
+    
+    /* ===== DARK MODE ===== */
+    body.dark-mode { filter: brightness(0.88) saturate(0.85); }
+    body.dark-mode .quick-action-btn[onclick*="toggleDarkMode"] { background: rgba(241,196,15,0.3); border-color: var(--highlight-yellow); }
+
+    /* ===== PRINT STYLES ===== */
+    @media print {
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { background: #fff !important; background-image: none !important; color: #000 !important; padding: 0 !important; margin: 0 !important; }
+        body::before { display: none !important; }
+        .container, .quick-actions-panel, .top-controls-right, .main-controls, #top-dashboard, .arena-footer, .modal-overlay, .batch-actions, .loading-overlay, .receipt-buttons { display: none !important; }
+        #receiptModal { display: block !important; position: static !important; background: none !important; padding: 0 !important; }
+        .receipt-modal-content { margin: 0 !important; width: 100% !important; max-width: 100% !important; background: #fff !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; border-radius: 0 !important; padding: 10mm !important; }
+        #receiptTitle { color: #000 !important; font-size: 22px !important; text-align: center; margin: 6px 0 !important; }
+        .receipt-icon { display: none !important; }
+        #receiptContent { background: #fff !important; color: #000 !important; border: 1px solid #ccc !important; border-radius: 8px !important; padding: 16px !important; margin-top: 10px !important; }
+        #receiptContent h3 { font-size: 18px; text-align: center; margin-bottom: 4px; color: #000 !important; }
+        #receiptContent h4 { font-size: 13px; text-align: center; color: #444 !important; margin-bottom: 12px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
+        #receiptContent p { margin: 6px 0; font-size: 13px; color: #000 !important; }
+        #receiptContent strong { color: #000 !important; }
+        #receiptLogoImg { display: block !important; max-height: 60px !important; margin: 0 auto 8px auto !important; }
+        /* History Print */
+        #bookingHistoryContainer { display: block !important; position: static !important; background: #fff !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; color: #000 !important; padding: 10mm !important; width: 100% !important; max-width: 100% !important; }
+        #bookingHistoryContainer .arena-header, #bookingHistoryContainer .history-controls { display: none !important; }
+        .print-only { display: block !important; text-align: center; margin-bottom: 15px; }
+        .print-only h1 { font-size: 22px; color: #000 !important; margin: 0; }
+        .print-only h2 { font-size: 15px; color: #333 !important; margin: 4px 0 0; font-weight: normal; }
+        #bookingHistory { color: #000 !important; border-collapse: collapse; width: 100%; font-size: 11px; }
+        #bookingHistory th { background: #ddeeff !important; color: #000 !important; padding: 6px; border: 1px solid #aaa; }
+        #bookingHistory td { padding: 5px 6px; border: 1px solid #ccc; color: #000 !important; }
+        #bookingHistory tr:nth-child(even) td { background: #f5f5f5 !important; }
+        .badge-paid { background: #27ae60 !important; color: #fff !important; padding: 2px 6px; border-radius: 10px; }
+        .badge-unpaid { background: #e74c3c !important; color: #fff !important; padding: 2px 6px; border-radius: 10px; }
+        .action-btn { display: none !important; }
+    }
+    .print-only { display: none; }
+
+  /* ===== ANDROID MOBILE OPTIMIZATIONS ===== */
+  @media screen and (max-width: 600px) {
+
+    /* Body & container */
+    body {
+      padding: 0 !important;
+      background-attachment: scroll !important; /* Fixes mobile bg-attachment:fixed lag */
+    }
+    .container {
+      padding: 0 !important;
+      padding-bottom: 80px !important; /* space for bottom quick actions */
+    }
+
+    /* Header */
+    .logo-header-group {
+      margin-top: 60px !important;
+      margin-bottom: 12px !important;
+      padding: 0 10px;
+    }
+    h1#arenaTitle {
+      font-size: 22px !important;
+      letter-spacing: 1px !important;
+    }
+    .arena-logo {
+      max-width: 80px !important;
+      max-height: 80px !important;
+    }
+
+    /* Top-right controls — shift down so they don't overlap logo */
+    .top-controls-right {
+      top: 10px !important;
+      right: 10px !important;
+      gap: 6px !important;
+    }
+    .top-controls-right button {
+      width: 42px !important;
+      height: 42px !important;
+    }
+    .icon-button { font-size: 20px !important; }
+
+    /* Main controls / nav buttons */
+    .main-controls {
+      margin-bottom: 12px !important;
+      padding: 0 10px;
+    }
+    .main-controls .top-controls {
+      gap: 8px !important;
+      flex-wrap: wrap !important;
+      justify-content: center !important;
+    }
+    .main-controls .top-controls button {
+      font-size: 13px !important;
+      padding: 10px 14px !important;
+      flex: 1 1 auto !important;
+    }
+    #bookNowBtn {
+      font-size: 26px !important;
+      padding: 16px 40px !important;
+      margin-top: 10px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Top dashboard: stack clock + schedule vertically */
+    .top-dashboard {
+      flex-direction: column !important;
+      gap: 10px !important;
+      padding: 0 10px !important;
+      margin-bottom: 12px !important;
+    }
+    #liveClockContainer { text-align: center !important; }
+    #liveClock { font-size: 36px !important; letter-spacing: 1px !important; }
+    #liveStatusPanel {
+      margin-top: 8px !important;
+      padding: 10px !important;
+      max-height: 56px !important;
+    }
+    #liveStatusHeader { font-size: 1.1em !important; }
+    #liveStatusPanel:hover { max-height: 280px !important; }
+
+    /* Schedule bookmark: full width */
+    #scheduleBookmark {
+      width: 100% !important;
+      box-sizing: border-box !important;
+      padding: 10px !important;
+      max-height: 100px !important;
+    }
+    #scheduleBookmark:hover { max-height: 220px !important; }
+    #scheduleBookmark h3 { font-size: 14px !important; margin-bottom: 8px !important; }
+    .schedule-slot { font-size: 12px !important; padding: 6px 4px !important; }
+
+    /* Glass panel containers */
+    #bookingForm, #bookingHistoryContainer, #arenaManagementContainer,
+    #settingsContainer, #calendarViewContainer, #incomeAnalyticsContainer,
+    #customerCRMContainer {
+      margin: 0 !important;
+      padding: 14px !important;
+      border-radius: 0 !important;
+      border-left: none !important;
+      border-right: none !important;
+    }
+
+    /* Arena header inside panels */
+    .arena-header { flex-wrap: wrap !important; gap: 8px !important; }
+    .arena-header h2 { font-size: 1.2em !important; }
+    .back-button-top { padding: 6px 12px !important; font-size: 13px !important; }
+
+    /* Form rows: stack vertically */
+    .form-row {
+      flex-direction: column !important;
+      gap: 0 !important;
+    }
+    .form-group input, .form-group select {
+      font-size: 16px !important; /* Prevents iOS/Android zoom on focus */
+      padding: 10px !important;
+    }
+
+    /* Form buttons */
+    .form-buttons {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 10px !important;
+    }
+    .form-buttons button {
+      width: 100% !important;
+      font-size: 16px !important;
+      padding: 14px !important;
+    }
+
+    /* Arena management grid: 2 columns on mobile */
+    .arena-management-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+    }
+    .arena-feature-card {
+      height: 110px !important;
+      padding: 10px !important;
+    }
+    .arena-feature-icon { font-size: 24px !important; margin-bottom: 6px !important; }
+    .arena-feature-card h3 { font-size: 0.9em !important; }
+    .arena-feature-card p { font-size: 11px !important; }
+
+    /* Calendar: reduce cell size */
+    .calendar-grid { gap: 3px !important; }
+    .calendar-cell {
+      min-height: 48px !important;
+      padding: 4px !important;
+      font-size: 11px !important;
+    }
+    .calendar-cell .day-number { font-size: 13px !important; }
+    .calendar-cell .booking-count { font-size: 10px !important; padding: 1px 5px !important; }
+    .calendar-day-header { padding: 5px 2px !important; font-size: 11px !important; }
+    .calendar-header button { padding: 8px 14px !important; font-size: 14px !important; }
+    #calendarMonthYear { font-size: 1.2em !important; }
+
+    /* Income analytics: stack charts */
+    .income-controls {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 10px !important;
+    }
+    .income-controls button { width: 100% !important; }
+    .income-summary-cards {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 10px !important;
+    }
+    .income-card { padding: 12px !important; }
+    .charts-row {
+      flex-direction: column !important;
+    }
+    .chart-container {
+      min-width: unset !important;
+      width: 100% !important;
+      flex: unset !important;
+    }
+    .income-table th, .income-table td {
+      padding: 7px 5px !important;
+      font-size: 12px !important;
+    }
+
+    /* Settings */
+    .settings-grid { grid-template-columns: 1fr !important; }
+    .settings-tabs { gap: 6px !important; }
+    .settings-tab { padding: 7px 10px !important; font-size: 0.8em !important; }
+
+    /* Booking history table: make scrollable horizontally */
+    #bookingHistoryContainer { overflow-x: auto !important; }
+    #bookingHistory { min-width: 600px !important; }
+    #bookingHistory th, #bookingHistory td {
+      padding: 7px 6px !important;
+      font-size: 12px !important;
+    }
+    .history-controls {
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
+    .history-controls input,
+    .history-controls button { width: 100% !important; box-sizing: border-box !important; }
+    #historyPartitionFilter { justify-content: stretch !important; }
+    #historyPartitionFilter button { flex: 1 !important; font-size: 13px !important; }
+    #searchInput { width: 100% !important; }
+
+    /* CRM */
+    #crmSearch { width: 100% !important; box-sizing: border-box !important; }
+
+    /* Receipt modal */
+    .receipt-modal-content {
+      width: 95% !important;
+      padding: 16px !important;
+    }
+    .receipt-buttons {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px !important;
+    }
+    .receipt-buttons button {
+      padding: 10px 8px !important;
+      font-size: 13px !important;
+    }
+
+    /* Modals */
+    .modal-content {
+      width: 95% !important;
+      padding: 16px !important;
+      max-height: 85vh !important;
+    }
+
+    /* Quick actions panel: move to bottom center on mobile */
+    .quick-actions-panel {
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      bottom: 12px !important;
+    }
+    .quick-action-btn {
+      width: 46px !important;
+      height: 46px !important;
+      font-size: 18px !important;
+    }
+
+    /* Floating stats: full width at bottom */
+    .floating-stats {
+      width: calc(100% - 20px) !important;
+      right: 10px !important;
+      left: 10px !important;
+      top: auto !important;
+      bottom: 70px !important;
+    }
+
+    /* Footer */
+    .arena-footer {
+      font-size: 11px !important;
+      padding: 10px 8px 5px !important;
+      text-align: center !important;
+    }
+    .data-widget-badge {
+      display: block !important;
+      margin: 6px auto 0 auto !important;
+      width: fit-content !important;
+    }
+
+    /* General buttons */
+    button {
+      font-size: 15px !important;
+      padding: 11px 18px !important;
+    }
+
+    /* Notification badge */
+    .notification-badge {
+      width: 17px !important;
+      height: 17px !important;
+      font-size: 10px !important;
+    }
+  }
+  /* END ANDROID MOBILE OPTIMIZATIONS */
+  </style>
+</head>
+<body>
+<div class="container">
+    <div class="top-controls-right">
+        <button onclick="toggleSettings()" title="Settings"><span class="icon-button">⚙️</span></button>
+        <button onclick="showNotificationsModal()" title="Notifications" id="notificationButton"><span class="icon-button">🔔</span></button>
+    </div>
+    
+    <!-- LOGO HEADER GROUP -->
+    <div class="logo-header-group" id="mainHeader">
+        <img id="arenaLogo" class="arena-logo" src="" alt="Arena Logo">
+        <h1 id="arenaTitle">THE GLOBAL RUSH ARENA</h1>
+    </div>
+
+    <div class="main-controls">
+        <div class="top-controls">
+            <button onclick="toggleArenaManagement()">ARENA Management</button>
+            <button onclick="toggleCalendarView()">📅 Daily Bookings</button>
+        </div>
+        <button id="bookNowBtn" onclick="toggleBookingForm()">Book Now</button>
+    </div>
+
+    <div class="top-dashboard" id="top-dashboard">
+        <div id="liveClockContainer">
+            <span id="liveClock"></span>
+            <div id="liveStatusPanel">
+                <div id="liveStatusHeader"></div>
+                <div id="liveStatusDetails" style="display: none;"></div>
+            </div>
+        </div>
+        <div id="scheduleBookmark">
+            <h3 id="scheduleTitle"></h3>
+            <div id="scheduleList"></div>
+        </div>
+    </div>
+
+    <!-- Booking Form -->
+    <div id="bookingForm">
+        <div class="arena-header"><h2>New Booking</h2><button class="back-button-top" onclick="showDashboard()">← Back</button></div>
+        <div class="form-group"><label>Full Name</label><input type="text" id="fullName"><div class="error-message" id="fullNameError">Required</div></div>
+        <div class="form-row">
+            <div class="form-group"><label>Team Name</label><input type="text" id="teamName"><div class="error-message" id="teamNameError">Required</div></div>
+            <div class="form-group"><label>Contact Number</label><input type="tel" id="contactNumber"><div class="error-message" id="contactNumberError">Required</div></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Address</label><input type="text" id="address"><div class="error-message" id="addressError">Required</div></div>
+            <div class="form-group"><label>Booking Date</label><input type="date" id="bookingDate" onchange="updateBookingSlots()"><div class="error-message" id="bookingDateError">Required</div></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Time Partition</label><select id="timePartition" onchange="updateBookingSlots()"><option value="all">All Times</option><option value="day">Day (6 AM - 6 PM)</option><option value="night">Night (7 PM - 5 AM)</option></select></div>
+            <div class="form-group"><label>Booking Time Slot</label><select id="bookingHour" required></select><div class="error-message" id="bookingHourError">Required</div></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Booking Amount</label><input type="number" id="bookingAmount"><div class="error-message" id="bookingAmountError">Required</div></div>
+            <div class="form-group"><label>Duration (Hours)</label><select id="bookingDuration"><option value="1">1 Hour</option><option value="2">2 Hours</option><option value="3">3 Hours</option><option value="4">4 Hours</option><option value="5">5 Hours</option><option value="6">6 Hours</option></select></div>
+            <div class="form-group"><label>Payment Method</label><select id="paymentMethod"><option value="" disabled selected>Select</option><option value="Cash">Cash</option><option value="By Hand Cash">By Hand Cash</option><option value="Bank Transfer">Bank Transfer</option><option value="JazzCash">JazzCash</option><option value="EasyPaisa">EasyPaisa</option><option value="Card">Card</option><option value="Cheque">Cheque</option></select><div class="error-message" id="paymentMethodError">Required</div></div>
+            <div class="form-group"><label>Payment Verified</label><select id="paymentVerified"><option value="" disabled selected>Select Status</option><option value="Yes">Yes</option><option value="No">No</option></select><div class="error-message" id="paymentVerifiedError">Required</div></div>
+        </div>
+        <div class="form-buttons">
+            <button onclick="submitBooking()" style="background: linear-gradient(145deg, #2ecc71, #27ae60);">Submit Booking</button>
+            <button onclick="clearForm()" style="background: rgba(255,255,255,0.15);">Clear</button>
+        </div>
+    </div>
+
+    <!-- Calendar View -->
+    <div id="calendarViewContainer">
+        <div class="arena-header">
+            <h2>📅 Daily Booking Calendar</h2>
+            <button class="back-button-top" onclick="showDashboard()">← Back</button>
+        </div>
+        <div class="calendar-header">
+            <button onclick="changeCalendarMonth(-1)">← Prev</button>
+            <span style="font-size: 1.8em; color: var(--highlight-yellow);" id="calendarMonthYear"></span>
+            <button onclick="changeCalendarMonth(1)">Next →</button>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <div style="margin-top: 25px; text-align: center; color: var(--text-secondary);">Click on a day to view all bookings (24h breakdown)</div>
+    </div>
+
+    <!-- Arena Management -->
+    <div id="arenaManagementContainer">
+        <div class="arena-header">
+            <h2>Arena Management</h2>
+            <button class="back-button-top" onclick="showDashboard()">← Back</button>
+        </div>
+        <div class="arena-management-grid">
+            <div class="arena-feature-card" onclick="toggleBookingHistory()"><div class="arena-feature-icon">📋</div><h3>Booking History</h3><p>View & manage bookings</p></div>
+            <div class="arena-feature-card" onclick="showIncomeAnalytics()"><div class="arena-feature-icon">📊</div><h3>Income Analytics</h3><p>Revenue, Charts & Reports</p></div>
+            <div class="arena-feature-card" onclick="toggleCRM()"><div class="arena-feature-icon">👥</div><h3>Customer CRM</h3><p>Loyalty & History</p></div>
+            <div class="arena-feature-card" onclick="createBackup()"><div class="arena-feature-icon">💾</div><h3>Create Backup</h3><p>Backup system data</p></div>
+            <div class="arena-feature-card" onclick="showBackupRestore()"><div class="arena-feature-icon">🔄</div><h3>Restore Data</h3><p>Import from backup</p></div>
+            <div class="arena-feature-card" onclick="showSystemSettings()"><div class="arena-feature-icon">⚙️</div><h3>System Settings</h3><p>Configure system</p></div>
+        </div>
+    </div>
+
+    <!-- ADVANCED INCOME ANALYTICS -->
+    <div id="incomeAnalyticsContainer">
+        <div class="arena-header">
+            <h2>💰 Professional Income Analytics</h2>
+            <button class="back-button-top" onclick="showDashboard()">← Back</button>
+        </div>
+        
+        <!-- Controls -->
+        <div class="income-controls">
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <label><input type="radio" name="incomePeriod" value="day" checked onchange="toggleIncomeDateInput()"> Daily View</label>
+                <label><input type="radio" name="incomePeriod" value="month" onchange="toggleIncomeDateInput()"> Monthly View</label>
+                <label><input type="radio" name="incomePeriod" value="year" onchange="toggleIncomeDateInput()"> Yearly View</label>
+            </div>
+            <div class="form-group" style="width: 200px;" id="incomeDatePickerContainer">
+                <input type="date" id="incomeDateInput" class="form-control">
+            </div>
+            <button onclick="renderIncomeAnalytics()" style="background: var(--success-color);">Analyze Revenue</button>
+            <button onclick="exportFinancialReport()" style="background: var(--accent-color);">📥 Export Report</button>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="income-summary-cards" id="incomeSummaryCards"></div>
+
+        <!-- Charts Section -->
+        <div class="charts-row" style="display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+            <div class="chart-container" style="flex: 2; min-width: 400px; height: 350px;">
+                <canvas id="revenueTrendChart"></canvas>
+            </div>
+            <div class="chart-container" style="flex: 1; min-width: 300px; height: 350px;">
+                <canvas id="paymentMethodChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Detailed Table -->
+        <h3 style="color: var(--highlight-yellow); border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Transaction Details (Paid Only)</h3>
+        <div style="max-height: 300px; overflow-y: auto;">
+            <table class="income-table">
+                <thead><tr><th>Date</th><th>Time</th><th>Team / Customer</th><th>Method</th><th>Partition</th><th>Amount</th></tr></thead>
+                <tbody id="incomeTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CUSTOMER CRM CONTAINER -->
+    <div id="customerCRMContainer">
+        <div class="arena-header">
+            <h2>👥 Customer Insights (CRM)</h2>
+            <button class="back-button-top" onclick="showDashboard()">← Back</button>
+        </div>
+        <div class="history-controls">
+            <input type="text" id="crmSearch" placeholder="Search Team or Name..." onkeyup="renderCRM()" style="padding: 10px; width: 300px;">
+            <button onclick="exportCRM()">Export List</button>
+        </div>
+        <div style="max-height: 500px; overflow-y: auto;">
+            <table class="income-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Team Name</th>
+                        <th>Contact Person</th>
+                        <th>Total Bookings</th>
+                        <th>Total Spent</th>
+                        <th>Last Visit</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="crmTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Settings Container -->
+    <div id="settingsContainer">
+        <div class="arena-header"><h2>System Settings</h2><button class="back-button-top" onclick="showDashboard()">← Back</button></div>
+        <div class="settings-tabs" id="settingsTabs">
+            <button class="settings-tab active" onclick="switchSettingsTab('appearance')">Appearance</button>
+            <button class="settings-tab" onclick="switchSettingsTab('notifications')">Notifications</button>
+            <button class="settings-tab" onclick="switchSettingsTab('financial')">Financial</button>
+            <button class="settings-tab" onclick="switchSettingsTab('advanced')">Advanced</button>
+            <button class="settings-tab" onclick="switchSettingsTab('security')">Security</button>
+        </div>
+        <div class="settings-grid">
+            <div class="settings-tab-content active" id="appearanceTab">
+                <div class="settings-section"><h3>Appearance</h3>
+                    <div class="form-group"><label>Arena Name</label><input type="text" id="arenaTitleInput" value="THE GLOBAL RUSH ARENA"></div>
+                    
+                    <!-- NEW: Logo Upload -->
+                    <div class="form-group">
+                        <label>Arena Logo (Upload)</label>
+                        <input type="file" id="logoUpload" accept="image/*" onchange="uploadLogoSave()">
+                        <div style="font-size:12px; color:var(--text-secondary); margin-top:5px;">Select an image to display on the dashboard.</div>
+                    </div>
+
+                    <div class="form-group"><label>Theme Color</label><div class="theme-grid" id="themeGrid"></div></div>
+                </div>
+            </div>
+            
+            <div class="settings-tab-content" id="financialTab">
+                <div class="settings-section"><h3>Financial Settings</h3>
+                    <div class="form-group"><label>Currency Symbol</label><select id="currencySelect"><option value="PKR">PKR (Rs)</option><option value="USD">$ (USD)</option><option value="GBP">£ (GBP)</option><option value="EUR">€ (EUR)</option></select></div>
+                    <div class="form-group"><label>Tax / Service Fee (%)</label><input type="number" id="taxRate" value="0" min="0" placeholder="e.g. 5"></div>
+                </div>
+            </div>
+
+            <div class="settings-tab-content" id="notificationsTab">
+                <div class="settings-section"><h3>Notifications</h3>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <label><input type="checkbox" id="notifyBookings" checked> New Bookings</label>
+                        <label><input type="checkbox" id="notifyPayments" checked> Payment Updates</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-tab-content" id="advancedTab">
+                <div class="settings-section"><h3>Operational</h3>
+                    <div class="form-group"><label>Slot Duration (min)</label><input type="number" id="slotDuration" value="60" min="30"></div>
+                    <div class="form-group"><label>Working Hours</label><select id="workingHours"><option value="24/7">24/7</option><option value="6am-12am">6 AM - 12 AM</option></select></div>
+                </div>
+            </div>
+            
+            <div class="settings-tab-content" id="securityTab">
+                <div class="settings-section"><h3>Data & Security</h3>
+                    <div class="form-group"><label>Auto Backup</label><select id="autoBackup"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
+                </div>
+            </div>
+        </div>
+        <div class="form-buttons"><button onclick="saveSettings()" style="background:var(--success-color);">💾 Save All Settings</button></div>
+    </div>
+
+    <!-- BOOKING HISTORY -->
+    <div id="bookingHistoryContainer">
+        <div class="arena-header"><h2>Booking History</h2><button class="back-button-top" onclick="showDashboard()">← Back</button></div>
+        <div class="history-controls">
+            <input type="date" id="historyDateFilter" onchange="filterHistory()">
+            <button onclick="showTodaysHistory()">Show Today</button>
+            <button onclick="showAllHistory()">Show All</button>
+            <div class="partition-filter" id="historyPartitionFilter">
+                <button class="active" onclick="setHistoryPartition('all', this)">All</button>
+                <button onclick="setHistoryPartition('day', this)">Day</button>
+                <button onclick="setHistoryPartition('night', this)">Night</button>
+            </div>
+            <input type="text" id="searchInput" onkeyup="filterHistory()" placeholder="Search...">
+            <button onclick="printHistory()">Print</button>
+        </div>
+        <div id="printableHistoryArea">
+            <div class="print-only"><h1 id="printMainTitle">THE GLOBAL RUSH ARENA</h1><h2 id="printHistoryDate"></h2></div>
+            <table id="bookingHistory">
+                <thead>
+                    <tr>
+                        <th>S.No</th><th>Booking ID</th><th>Name</th><th>Contact</th><th>Team</th><th>Address</th>
+                        <th>Booking Time</th><th>Amount</th><th>Method</th><th>Submitted</th><th>Verified</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="bookingHistoryBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="arena-footer">
+        <span class="highlight">© 2025-2026 THE GLOBAL RUSH ARENA</span> · ALL RIGHTS RESERVED.
+        <span class="separator-dot">|</span> POWERED BY <span class="highlight">PAMMEER GROUP</span>
+        <span class="data-widget-badge" id="footerSummaryWidget">📋 Today: 0 book | 💰 0 paid | ⏳ 0 unpaid</span>
+    </div>
+</div>
+
+<!-- Edit Booking Modal -->
+<div id="editBookingModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:520px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="color:var(--highlight-yellow); margin:0;">✏️ Edit Booking</h2>
+            <button onclick="hideModal('editBookingModal')" style="background:rgba(255,255,255,0.1); padding:6px 12px; font-size:14px;">✖ Close</button>
+        </div>
+        <input type="hidden" id="editBookingIndex">
+        <div class="form-group"><label>Full Name</label><input type="text" id="editFullName"></div>
+        <div class="form-row">
+            <div class="form-group"><label>Team Name</label><input type="text" id="editTeamName"></div>
+            <div class="form-group"><label>Contact Number</label><input type="tel" id="editContactNumber"></div>
+        </div>
+        <div class="form-group"><label>Address</label><input type="text" id="editAddress"></div>
+        <div class="form-row">
+            <div class="form-group"><label>Booking Amount</label><input type="number" id="editBookingAmount"></div>
+            <div class="form-group"><label>Payment Method</label>
+                <select id="editPaymentMethod">
+                    <option value="Cash">Cash</option>
+                    <option value="By Hand Cash">By Hand Cash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="JazzCash">JazzCash</option>
+                    <option value="EasyPaisa">EasyPaisa</option>
+                    <option value="Card">Card</option>
+                    <option value="Cheque">Cheque</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group"><label>Payment Status</label>
+            <select id="editPaymentVerified">
+                <option value="Yes">Verified (Paid)</option>
+                <option value="No">Not Verified (Unpaid)</option>
+            </select>
+        </div>
+        <div class="form-buttons">
+            <button onclick="saveEditBooking()" style="background:var(--success-color);">💾 Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar Day Detail Modal -->
+<div id="calendarDayModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="color:var(--highlight-yellow); margin:0;" id="calendarDayModalTitle">📅 Day Bookings</h2>
+            <button onclick="hideModal('calendarDayModal')" style="background:rgba(255,255,255,0.1); padding:6px 12px; font-size:14px;">✖ Close</button>
+        </div>
+        <div id="calendarDayModalBody" style="max-height:400px; overflow-y:auto;"></div>
+    </div>
+</div>
+
+<!-- Receipt Modal -->
+<div id="receiptModal"><div class="receipt-modal-content"><div id="receiptIcon" class="receipt-icon"></div><h2 id="receiptTitle"></h2><div id="receiptContent"><img id="receiptLogoImg" style="display:none; max-height:70px; border-radius:50%; margin:0 auto 8px auto; display:block;" src="" alt="Arena Logo"><h3 id="receiptArenaName">THE GLOBAL RUSH ARENA</h3><h4>Official Booking Receipt</h4><p><strong>Booking ID:</strong> <span id="receiptBookingId"></span></p><p><strong>Name & Team:</strong> <span id="receiptNameAndTeam"></span></p><p><strong>Contact:</strong> <span id="receiptContact"></span></p><p><strong>Booking Slot:</strong> <span id="receiptBookingTime"></span></p><p><strong>Partition:</strong> <span id="receiptTimePartition"></span></p><p><strong>Duration:</strong> <span id="receiptDuration"></span></p><p><strong>Amount:</strong> <span id="receiptAmount"></span></p><p><strong>Payment Method:</strong> <span id="receiptPaymentMethod"></span></p><p><strong>Payment Status:</strong> <span id="receiptPaymentStatus"></span></p><p><strong>Booked On:</strong> <span id="receiptSubmissionDate"></span></p></div><div class="receipt-buttons"><button onclick="printReceipt()">🖨️ Print</button><button onclick="saveReceipt()">💾 Save Image</button><button onclick="shareReceiptWhatsApp()" style="background:#25D366;">📱 WhatsApp</button><button onclick="copyReceiptText()" style="background:rgba(255,255,255,0.15);">📋 Copy</button><button onclick="hideReceiptModal()">✖ Close</button></div></div></div>
+
+<!-- Notifications Modal -->
+<div id="notificationsModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color: var(--highlight-yellow); margin:0;">Notifications</h2>
+            <button onclick="markAllNotificationsRead()" style="background: var(--success-color); padding: 8px 16px; font-size: 14px;">Mark all read</button>
+        </div>
+        <div id="notificationsList" style="max-height: 400px; overflow-y: auto;"></div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="hideModal('notificationsModal')" style="background: var(--accent-color);">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="quick-actions-panel">
+    <div class="quick-action-btn" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌙</div>
+</div>
+
+<script>
+    // ==================== FIREBASE (CLOUD SYNC) ====================
+    const firebaseConfig = {
+        apiKey: "AIzaSyDduUAyPAnxg9OgNfHpLX-_SuQB1uQyQMY",
+        authDomain: "global-rush-arena-booking-s.firebaseapp.com",
+        projectId: "global-rush-arena-booking-s",
+        storageBucket: "global-rush-arena-booking-s.firebasestorage.app",
+        messagingSenderId: "182269079543",
+        appId: "1:182269079543:web:d87544db16ca46b7b448f2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    // Every booking lives as its own document, so two phones writing at the
+    // same time never overwrite each other's booking - they just add/update
+    // their own document side by side.
+    const bookingsRef = db.collection('bookings');
+    let cloudReady = false;
+
+    // ==================== GLOBAL ====================
+    let bookings = [];
+    let notifications = [];
+    let activeTab = null;
+    let settings = {
+        arenaName: "THE GLOBAL RUSH ARENA",
+        theme: 'default',
+        currency: 'PKR',
+        taxRate: 0,
+        notifications: { bookings: true, payments: true },
+        slotDuration: 60,
+        workingHours: '24/7',
+        autoBackup: 'daily'
+    };
+    let calendarCurrentDate = new Date();
+    let historyPartitionFilter = 'all';
+
+    // Chart Instances
+    let revenueChartInstance = null;
+    let methodChartInstance = null;
+
+    // ==================== INIT ====================
+    document.addEventListener('DOMContentLoaded', () => {
+        populateHourDropdown();
+        loadAllData();
+        listenForBookings();
+        updateClock();
+        setInterval(updateClock, 1000);
+        updateScheduleTitle();
+        loadSettings();
+        generateThemes();
+        updateNotificationBadge();
+        updateFooterWidget();
+
+        document.getElementById('scheduleBookmark').addEventListener('mouseleave', function(e){ this._scroll = this.scrollTop; });
+        document.getElementById('scheduleBookmark').addEventListener('mouseenter', function(e){ this.scrollTop = this._scroll || 0; });
+        document.getElementById('liveStatusPanel').addEventListener('mouseenter', ()=> document.getElementById('liveStatusDetails').style.display = 'block');
+        document.getElementById('liveStatusPanel').addEventListener('mouseleave', ()=> document.getElementById('liveStatusDetails').style.display = 'none');
+        
+        document.getElementById('incomeDateInput').value = new Date().toISOString().split('T')[0];
+        addNotification('System ready', 'info');
+    });
+
+    // ========== NAVIGATION & BACK BUTTONS FIX ==========
+    function hideAllSections() {
+        const sections = [
+            'bookingForm', 
+            'bookingHistoryContainer', 
+            'arenaManagementContainer', 
+            'settingsContainer', 
+            'calendarViewContainer', 
+            'incomeAnalyticsContainer', 
+            'customerCRMContainer'
+        ];
+        
+        // Hide Functional Sections
+        sections.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
+
+        // HIDE MAIN DASHBOARD ELEMENTS (Focus Mode)
+        document.getElementById('mainHeader').style.display = 'none';
+        document.querySelector('.main-controls').style.display = 'none';
+        document.getElementById('top-dashboard').style.display = 'none';
+        document.querySelector('.arena-footer').style.display = 'none';
+
+        document.querySelectorAll('.active-tab').forEach(t => t.classList.remove('active-tab'));
+        document.body.classList.remove('blur-active');
+        activeTab = null;
+    }
+
+    function showDashboard() { 
+        // 1. Hide functional tabs first
+        const sections = [
+            'bookingForm', 
+            'bookingHistoryContainer', 
+            'arenaManagementContainer', 
+            'settingsContainer', 
+            'calendarViewContainer', 
+            'incomeAnalyticsContainer', 
+            'customerCRMContainer'
+        ];
+        sections.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
+
+        // 2. RESTORE DASHBOARD ELEMENTS
+        document.getElementById('mainHeader').style.display = 'flex';
+        document.querySelector('.main-controls').style.display = 'flex';
+        document.getElementById('top-dashboard').style.display = 'flex';
+        document.querySelector('.arena-footer').style.display = 'block';
+        
+        activeTab = null; 
+        document.body.classList.remove('blur-active'); 
+        updateFooterWidget();
+    }
+
+    function applyBlur() { 
+        document.body.classList.add('blur-active'); 
+    }
+
+    // ========== SETTINGS & NAME UPDATE ==========
+    function updateArenaName(name) {
+        // Update Setting State
+        settings.arenaName = name;
+        
+        // Update DOM elements
+        document.getElementById('arenaTitle').textContent = name;
+        document.getElementById('printMainTitle').textContent = name;
+        document.getElementById('receiptArenaName').textContent = name;
+        document.title = name + " - Professional System";
+        
+        // Update Input Field
+        const input = document.getElementById('arenaTitleInput');
+        if(input && input.value !== name) input.value = name;
+    }
+
+    function toggleSettings() {
+        hideAllSections();
+        document.getElementById('settingsContainer').style.display = 'block';
+        document.getElementById('settingsContainer').classList.add('active-tab');
+        activeTab = 'settings';
+        applyBlur();
+    }
+
+    function switchSettingsTab(tab) {
+        document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.settings-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById(tab + 'Tab').classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function uploadLogoSave() {
+        const file = document.getElementById('logoUpload').files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const logoData = e.target.result;
+                localStorage.setItem('arenaSavedLogo', logoData);
+                applyLogo(logoData);
+                addNotification('Logo updated successfully', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function applyLogo(src) {
+        const img = document.getElementById('arenaLogo');
+        if (src) {
+            img.src = src;
+            img.style.display = 'block';
+        } else {
+            img.style.display = 'none';
+        }
+    }
+
+    function loadSettings() {
+        let s = localStorage.getItem('arenaSettings');
+        if (s) { 
+            settings = JSON.parse(s); 
+            // Use the central update function to ensure consistent naming
+            updateArenaName(settings.arenaName || "THE GLOBAL RUSH ARENA");
+            
+            // Financials
+            document.getElementById('currencySelect').value = settings.currency || 'PKR';
+            document.getElementById('taxRate').value = settings.taxRate || 0;
+            
+            if (settings.theme) applyTheme(settings.theme);
+        } else {
+            updateArenaName("THE GLOBAL RUSH ARENA");
+        }
+        
+        // Load Logo
+        const savedLogo = localStorage.getItem('arenaSavedLogo');
+        if(savedLogo) applyLogo(savedLogo);
+    }
+
+    function saveSettings() {
+        const newName = document.getElementById('arenaTitleInput').value;
+        updateArenaName(newName);
+        
+        settings.currency = document.getElementById('currencySelect').value;
+        settings.taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+        
+        settings.notifications = {
+            bookings: document.getElementById('notifyBookings').checked,
+            payments: document.getElementById('notifyPayments').checked
+        };
+        settings.slotDuration = parseInt(document.getElementById('slotDuration').value) || 60;
+        settings.workingHours = document.getElementById('workingHours').value;
+        settings.autoBackup = document.getElementById('autoBackup').value;
+        
+        localStorage.setItem('arenaSettings', JSON.stringify(settings));
+        addNotification('Settings saved', 'success');
+    }
+
+    // ========== NOTIFICATIONS ==========
+    function addNotification(msg, type = 'info') {
+        let n = {
+            id: Date.now(),
+            message: msg,
+            type: type,
+            time: new Date().toLocaleTimeString(),
+            date: new Date().toLocaleDateString(),
+            read: false
+        };
+        notifications.unshift(n);
+        while (notifications.length > 50) notifications.pop();
+        updateNotificationBadge();
+        saveAllData();
+    }
+
+    function updateNotificationBadge() {
+        let unreadCount = notifications.filter(n => !n.read).length;
+        let badge = document.querySelector('.notification-badge');
+        let button = document.getElementById('notificationButton');
+        
+        if (unreadCount > 0) {
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'notification-badge';
+                button.appendChild(badge);
+            }
+            badge.textContent = unreadCount;
+        } else {
+            if (badge) badge.remove();
+        }
+    }
+
+    function showNotificationsModal() {
+        const modal = document.getElementById('notificationsModal');
+        const listContainer = document.getElementById('notificationsList');
+        if (!listContainer) return;
+        listContainer.innerHTML = '';
+        
+        if (notifications.length === 0) {
+            listContainer.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-secondary);">No notifications</div>';
+        } else {
+            notifications.forEach((n, index) => {
+                const item = document.createElement('div');
+                item.className = `notification-item ${n.read ? '' : 'unread'}`;
+                item.innerHTML = `
+                    <div style="flex:1;">
+                        <div class="notification-message">${n.message}</div>
+                        <div class="notification-time">${n.date} ${n.time}</div>
+                    </div>
+                    ${!n.read ? `<button class="mark-read-btn" onclick="markNotificationRead(${index})">✓ Read</button>` : ''}
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+        modal.style.display = 'flex';
+        applyBlur();
+    }
+
+    function markNotificationRead(index) {
+        if (notifications[index]) {
+            notifications[index].read = true;
+            updateNotificationBadge();
+            showNotificationsModal();
+            saveAllData();
+        }
+    }
+
+    function markAllNotificationsRead() {
+        notifications.forEach(n => n.read = true);
+        updateNotificationBadge();
+        showNotificationsModal();
+        saveAllData();
+    }
+
+    function hideModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        document.body.classList.remove('blur-active');
+    }
+
+    // ========== BASIC FUNCTIONS ==========
+    function toggleBookingForm() {
+        hideAllSections();
+        document.getElementById('bookingForm').style.display = 'block';
+        document.getElementById('bookingForm').classList.add('active-tab');
+        activeTab = 'bookingForm';
+        updateBookingSlots();
+        applyBlur();
+    }
+
+    function toggleArenaManagement() {
+        hideAllSections();
+        document.getElementById('arenaManagementContainer').style.display = 'block';
+        document.getElementById('arenaManagementContainer').classList.add('active-tab');
+        activeTab = 'arenaManagement';
+        applyBlur();
+    }
+
+    function toggleBookingHistory() {
+        hideAllSections();
+        document.getElementById('bookingHistoryContainer').style.display = 'block';
+        document.getElementById('bookingHistoryContainer').classList.add('active-tab');
+        activeTab = 'bookingHistory';
+        showTodaysHistory();
+        applyBlur();
+    }
+
+    // ========== DATA LOGIC ==========
+    function submitBooking() {
+        if (!validateForm()) return;
+        const bookingDate = document.getElementById('bookingDate').value;
+        const bookingHour = document.getElementById('bookingHour').value;
+        const bookingTime = `${bookingDate}T${bookingHour}`;
+        const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
+        
+        // Check all slots covered by the duration for conflicts
+        let conflictSlot = null;
+        for (let d = 0; d < duration; d++) {
+            const checkDate = new Date(bookingDate + 'T' + bookingHour);
+            checkDate.setHours(checkDate.getHours() + d);
+            const checkSlot = checkDate.toISOString().slice(0,10) + 'T' + String(checkDate.getHours()).padStart(2,'0') + ':00';
+            if (bookings.some(b => b.bookingTime === checkSlot)) { conflictSlot = checkSlot; break; }
+        }
+        if (conflictSlot) {
+            // Fix: show visible inline alert, not just notification
+            const existingAlert = document.getElementById('bookingConflictAlert');
+            if (existingAlert) existingAlert.remove();
+            const alertEl = document.createElement('div');
+            alertEl.id = 'bookingConflictAlert';
+            alertEl.style.cssText = 'background:rgba(231,76,60,0.2); border:1px solid var(--error-color); border-radius:8px; padding:12px 16px; margin-bottom:15px; color:var(--error-color); font-weight:bold; text-align:center;';
+            alertEl.textContent = '⚠️ Slot conflict! A booking already exists at ' + new Date(conflictSlot).toLocaleString() + '. Please choose a different time.';
+            document.getElementById('bookingForm').querySelector('.form-buttons').before(alertEl);
+            addNotification('Slot already booked — conflict at ' + conflictSlot, 'error');
+            return;
+        }
+        // Remove any previous conflict alert
+        const existingAlert = document.getElementById('bookingConflictAlert');
+        if (existingAlert) existingAlert.remove();
+
+        let amount = parseFloat(document.getElementById('bookingAmount').value) || 0;
+
+        // Fix: generate truly unique booking ID
+        let newId;
+        do { newId = 'GLOBAL-' + Math.random().toString(36).substring(2,7).toUpperCase(); }
+        while (bookings.some(b => b.bookingId === newId));
+
+        const newBooking = {
+            bookingId: newId,
+            fullName: document.getElementById('fullName').value,
+            contactNumber: document.getElementById('contactNumber').value,
+            teamName: document.getElementById('teamName').value,
+            address: document.getElementById('address').value,
+            bookingTime,
+            duration: duration,
+            bookingAmount: amount,
+            paymentMethod: document.getElementById('paymentMethod').value,
+            submissionDateTime: new Date().toISOString(),
+            verified: document.getElementById('paymentVerified').value === 'Yes'
+        };
+        bookings.push(newBooking);
+        // Write straight to this booking's own cloud document. Firestore
+        // never has to touch anyone else's booking to save this one, so the
+        // other owner's phone can never get overwritten by this action.
+        bookingsRef.doc(newBooking.bookingId).set(newBooking)
+            .catch(err => { console.error(err); addNotification('Could not sync booking to cloud - check internet', 'error'); });
+        saveAllData();
+        updateScheduleBookmark();
+        addNotification(`Booking created for ${newBooking.fullName}`, 'success');
+        showReceiptModal(newBooking);
+        updateFooterWidget();
+    }
+
+    function validateForm() {
+        let valid = true;
+        ['fullName','contactNumber','teamName','address','bookingDate','bookingHour','bookingAmount','paymentMethod','paymentVerified'].forEach(id => {
+            let f = document.getElementById(id), e = document.getElementById(id+'Error');
+            if (!f || !f.value) { 
+                if(f) f.classList.add('invalid'); 
+                if(e) e.style.display='block'; 
+                valid = false; 
+            } else { 
+                if(f) f.classList.remove('invalid'); 
+                if(e) e.style.display='none'; 
+            }
+        });
+        return valid;
+    }
+
+    function updateBookingSlots() {
+        let date = document.getElementById('bookingDate').value;
+        let partition = document.getElementById('timePartition').value;
+        let hourSelect = document.getElementById('bookingHour');
+        let bookedOnDate = date ? bookings.filter(b=>b.bookingTime && b.bookingTime.startsWith(date)) : [];
+        
+        for (let opt of hourSelect.options) {
+            if (opt.value) {
+                let hour = parseInt(opt.value.split(':')[0],10);
+                let visible = true;
+                // Fix: unified boundary: Day = 6AM to 5PM (hours 6-17), Night = 6PM to 5AM (hours 18-23 and 0-5)
+                if (partition==='day' && (hour<6||hour>=18)) visible = false;
+                if (partition==='night' && (hour>=6 && hour<18)) visible = false;
+                opt.style.display = visible ? 'block' : 'none';
+                if (visible) {
+                    let isBooked = bookedOnDate.some(b=>b.bookingTime && b.bookingTime.endsWith(opt.value));
+                    opt.textContent = opt.dataset.baseText;
+                    opt.style.color = ''; 
+                    opt.disabled = false;
+                    if (isBooked) { 
+                        opt.disabled = true; 
+                        opt.textContent += ' (Booked)'; 
+                        opt.style.color = '#e74c3c'; 
+                    } else { 
+                        opt.textContent += ' (Available)'; 
+                        opt.style.color = '#2ecc71'; 
+                    }
+                }
+            }
+        }
+    }
+
+    function populateHourDropdown() {
+        let select = document.getElementById('bookingHour'); 
+        if (!select) return;
+        select.innerHTML = '<option value="" disabled selected>Select a Date First</option>';
+        for (let i=0;i<24;i++) { 
+            let opt = document.createElement('option'); 
+            opt.value = `${i.toString().padStart(2,'0')}:00`; 
+            opt.textContent = `${i%12||12} ${i<12?'AM':'PM'} - ${(i+1)%12||12} ${i+1<12?'AM':'PM'}`; 
+            opt.dataset.baseText = opt.textContent; 
+            select.appendChild(opt); 
+        }
+    }
+
+    function clearForm() {
+        document.querySelectorAll('#bookingForm input, #bookingForm select').forEach(f => { 
+            if (f.id != 'timePartition') f.value = ''; 
+            else f.value='all'; 
+            f.classList.remove('invalid'); 
+        });
+        updateBookingSlots();
+    }
+
+    // ========== HISTORY & CRM & ANALYTICS ==========
+    function updateBookingHistory(arr) {
+        let tbody = document.getElementById('bookingHistoryBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        if (!arr || arr.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px;">No booking records found</td></tr>';
+            return;
+        }
+        
+        arr.sort((a,b) => new Date(b.bookingTime) - new Date(a.bookingTime)).forEach((b, i) => {
+            let row = tbody.insertRow();
+            let index = bookings.indexOf(b);
+            
+            row.innerHTML = `
+                <td>${i+1}</td>
+                <td>${b.bookingId || 'N/A'}</td>
+                <td>${b.fullName || ''}</td>
+                <td>${b.contactNumber || ''}</td>
+                <td>${b.teamName || ''}</td>
+                <td>${b.address || ''}</td>
+                <td>${b.bookingTime ? new Date(b.bookingTime).toLocaleString() : ''}</td>
+                <td>${settings.currency} ${b.bookingAmount || 0}</td>
+                <td>${b.paymentMethod || ''}</td>
+                <td>${b.submissionDateTime ? new Date(b.submissionDateTime).toLocaleString() : ''}</td>
+                <td><button class="action-btn verify-btn ${b.verified ? 'verified' : ''}" onclick="toggleVerification(${index})">${b.verified ? 'Yes' : 'No'}</button></td>
+                <td>
+                    <button class="action-btn" style="background:var(--accent-color); margin-bottom:3px;" onclick="editBooking(${index})">Edit</button>
+                    <button class="action-btn delete-btn" onclick="deleteBooking(${index})">Delete</button>
+                </td>
+            `;
+        });
+    }
+
+    function filterHistory() {
+        let search = document.getElementById('searchInput').value.toLowerCase();
+        let date = document.getElementById('historyDateFilter').value;
+        let filtered = [...bookings];
+        
+        if (date) {
+            filtered = filtered.filter(b => b.bookingTime && b.bookingTime.startsWith(date));
+        }
+        
+        if (historyPartitionFilter !== 'all') {
+            filtered = filtered.filter(b => {
+                if (!b.bookingTime) return false;
+                let h = new Date(b.bookingTime).getHours();
+                // Fix: unified boundary consistent with booking form (Day=6-17, Night=18-5)
+                if (historyPartitionFilter === 'day') return h >= 6 && h < 18;
+                else return h < 6 || h >= 18;
+            });
+        }
+        
+        if (search) {
+            filtered = filtered.filter(b => 
+                Object.values(b).some(v => 
+                    v && v.toString().toLowerCase().includes(search)
+                )
+            );
+        }
+        updateBookingHistory(filtered);
+    }
+
+    function showTodaysHistory() {
+        document.getElementById('historyDateFilter').value = new Date().toISOString().split('T')[0];
+        filterHistory();
+    }
+    
+    function showAllHistory() {
+        document.getElementById('historyDateFilter').value = '';
+        filterHistory();
+    }
+    
+    function setHistoryPartition(p, el) {
+        historyPartitionFilter = p;
+        document.querySelectorAll('#historyPartitionFilter button').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        filterHistory();
+    }
+
+    function deleteBooking(i) {
+        if (confirm('Delete this booking?')) {
+            const deletedId = bookings[i].bookingId;
+            bookings.splice(i, 1);
+            bookingsRef.doc(deletedId).delete()
+                .catch(err => { console.error(err); addNotification('Could not sync delete to cloud - check internet', 'error'); });
+            saveAllData();
+            filterHistory();
+            updateScheduleBookmark();
+            updateFooterWidget();
+            addNotification('Booking deleted', 'info');
+        }
+    }
+
+    function toggleVerification(i) {
+        if (bookings[i]) {
+            bookings[i].verified = !bookings[i].verified;
+            bookingsRef.doc(bookings[i].bookingId).update({ verified: bookings[i].verified })
+                .catch(err => { console.error(err); addNotification('Could not sync payment status to cloud', 'error'); });
+            saveAllData();
+            filterHistory();
+            updateScheduleBookmark();
+            updateFooterWidget();
+        }
+    }
+
+    // --- Analytics ---
+    function showIncomeAnalytics() {
+        hideAllSections();
+        document.getElementById('incomeAnalyticsContainer').style.display = 'block';
+        document.getElementById('incomeAnalyticsContainer').classList.add('active-tab');
+        activeTab = 'income';
+        applyBlur();
+        toggleIncomeDateInput();
+        renderIncomeAnalytics();
+    }
+    
+    function toggleIncomeDateInput() {
+        const period = document.querySelector('input[name="incomePeriod"]:checked').value;
+        const input = document.getElementById('incomeDateInput');
+        
+        if (period === 'day') {
+            input.type = 'date';
+            if (!input.value) input.value = new Date().toISOString().split('T')[0];
+        } else if (period === 'month') {
+            input.type = 'month';
+            if (!input.value) input.value = new Date().toISOString().slice(0,7);
+        } else {
+            input.type = 'number';
+            input.placeholder = 'YYYY';
+            input.value = new Date().getFullYear();
+        }
+    }
+
+    function renderIncomeAnalytics() {
+        const period = document.querySelector('input[name="incomePeriod"]:checked').value;
+        const dateInput = document.getElementById('incomeDateInput');
+        let dateVal = dateInput.value;
+
+        if (!dateVal) {
+            const now = new Date();
+            dateVal = period === 'day' ? now.toISOString().split('T')[0] : 
+                      period === 'month' ? now.toISOString().slice(0, 7) : 
+                      now.getFullYear().toString();
+        }
+
+        let filtered = bookings.filter(b => b.verified === true);
+        let label = "";
+
+        if (period === 'day') {
+            filtered = filtered.filter(b => b.bookingTime.startsWith(dateVal));
+            label = new Date(dateVal).toDateString();
+        } else if (period === 'month') {
+            filtered = filtered.filter(b => b.bookingTime.startsWith(dateVal)); 
+            const [y, m] = dateVal.split('-');
+            label = new Date(y, m-1).toLocaleString('default', { month: 'long', year: 'numeric' });
+        } else if (period === 'year') {
+            let year = dateVal.toString().split('-')[0]; 
+            filtered = filtered.filter(b => b.bookingTime.startsWith(year));
+            label = `Year ${year}`;
+        }
+
+        const totalRevenue = filtered.reduce((acc, b) => acc + (parseFloat(b.bookingAmount) || 0), 0);
+        const totalBookings = filtered.length;
+        
+        // Fix: also calculate pending/unpaid revenue from the full unfiltered set for that period
+        let allPeriodBookings = bookings;
+        if (period === 'day') allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
+        else if (period === 'month') allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
+        else if (period === 'year') { let year = dateVal.toString().split('-')[0]; allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(year)); }
+        const unpaidRevenue = allPeriodBookings.filter(b => !b.verified).reduce((acc, b) => acc + (parseFloat(b.bookingAmount) || 0), 0);
+        const totalExpected = totalRevenue + unpaidRevenue;
+        
+        const dayRevenue = filtered.filter(b => {
+            const h = new Date(b.bookingTime).getHours();
+            return h >= 6 && h < 18;
+        }).reduce((acc, b) => acc + (parseFloat(b.bookingAmount)||0), 0);
+        
+        const nightRevenue = totalRevenue - dayRevenue;
+
+        const methods = {};
+        filtered.forEach(b => {
+            methods[b.paymentMethod] = (methods[b.paymentMethod] || 0) + (parseFloat(b.bookingAmount) || 0);
+        });
+
+        document.getElementById('incomeSummaryCards').innerHTML = `
+            <div class="income-card paid">
+                <h3>💰 Total Net Revenue</h3>
+                <div style="font-size:36px; color:var(--success-color); font-weight:bold;">${settings.currency} ${totalRevenue.toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">${label} · ${totalBookings} paid bookings</div>
+            </div>
+            <div class="income-card" style="border-left-color: var(--error-color); background: rgba(231,76,60,0.1);">
+                <h3>⏳ Pending / Unpaid</h3>
+                <div style="font-size:36px; color:var(--error-color); font-weight:bold;">${settings.currency} ${unpaidRevenue.toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">Expected total: ${settings.currency} ${totalExpected.toLocaleString()}</div>
+            </div>
+            <div class="income-card" style="border-left-color: var(--highlight-yellow);">
+                <h3>🌞 Day / 🌚 Night Split</h3>
+                <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                    <div><span style="color:var(--highlight-yellow);">Day:</span> ${dayRevenue.toLocaleString()}</div>
+                    <div><span style="color:var(--accent-color);">Night:</span> ${nightRevenue.toLocaleString()}</div>
+                </div>
+                <div style="margin-top:5px; font-size:12px;">${totalBookings} paid bookings</div>
+            </div>
+        `;
+
+        let tbody = '';
+        filtered.sort((a,b) => new Date(b.bookingTime) - new Date(a.bookingTime)).forEach(b => {
+            const dt = new Date(b.bookingTime);
+            const h = dt.getHours();
+            const part = (h >= 6 && h < 18) ? 'Day' : 'Night';
+            tbody += `<tr>
+                <td>${dt.toLocaleDateString()}</td>
+                <td>${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
+                <td>${b.teamName} <br><span style="font-size:11px;color:var(--text-secondary)">${b.fullName}</span></td>
+                <td>${b.paymentMethod}</td>
+                <td><span class="day-night-label">${part}</span></td>
+                <td style="font-weight:bold; color:var(--success-color);">${settings.currency} ${parseInt(b.bookingAmount).toLocaleString()}</td>
+            </tr>`;
+        });
+        document.getElementById('incomeTableBody').innerHTML = tbody || '<tr><td colspan="6" style="text-align:center;">No data found</td></tr>';
+        
+        renderCharts(filtered, period, methods);
+    }
+
+    function renderCharts(data, period, methodData) {
+        const ctxTrend = document.getElementById('revenueTrendChart').getContext('2d');
+        const ctxMethod = document.getElementById('paymentMethodChart').getContext('2d');
+
+        if (revenueChartInstance) revenueChartInstance.destroy();
+        if (methodChartInstance) methodChartInstance.destroy();
+
+        let labels = [], values = [];
+        
+        if (period === 'day') {
+            const hourly = new Array(24).fill(0);
+            data.forEach(b => hourly[new Date(b.bookingTime).getHours()] += parseFloat(b.bookingAmount));
+            labels = hourly.map((_, i) => `${i}:00`);
+            values = hourly;
+        } else {
+            const daily = {};
+            data.forEach(b => {
+                const d = new Date(b.bookingTime).getDate();
+                daily[d] = (daily[d] || 0) + parseFloat(b.bookingAmount);
+            });
+            labels = Object.keys(daily).map(d => `Day ${d}`);
+            values = Object.values(daily);
+        }
+
+        revenueChartInstance = new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Revenue (${settings.currency})`,
+                    data: values,
+                    borderColor: '#2ecc71',
+                    backgroundColor: 'rgba(46, 204, 113, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#fff' } },
+                    title: { display: true, text: 'Income Trend', color: '#fff' }
+                },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ccc' } },
+                    x: { grid: { display: false }, ticks: { color: '#ccc' } }
+                }
+            }
+        });
+
+        methodChartInstance = new Chart(ctxMethod, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(methodData),
+                datasets: [{
+                    data: Object.values(methodData),
+                    backgroundColor: ['#3498db', '#e74c3c', '#f1c40f', '#9b59b6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#fff' } },
+                    title: { display: true, text: 'Payment Methods', color: '#fff' }
+                }
+            }
+        });
+    }
+
+    // --- CRM ---
+    function toggleCRM() {
+        hideAllSections();
+        document.getElementById('customerCRMContainer').style.display = 'block';
+        document.getElementById('customerCRMContainer').classList.add('active-tab');
+        activeTab = 'crm';
+        applyBlur();
+        renderCRM();
+    }
+
+    function renderCRM() {
+        const search = document.getElementById('crmSearch').value.toLowerCase();
+        
+        const customers = {};
+        bookings.forEach(b => {
+            const key = (b.teamName + "_" + b.contactNumber).toLowerCase();
+            if (!customers[key]) {
+                customers[key] = {
+                    team: b.teamName,
+                    contact: b.contactNumber,
+                    name: b.fullName,
+                    visits: 0,
+                    spent: 0,
+                    lastVisit: b.bookingTime
+                };
+            }
+            customers[key].visits++;
+            if(b.verified) customers[key].spent += parseFloat(b.bookingAmount);
+            if(new Date(b.bookingTime) > new Date(customers[key].lastVisit)) {
+                customers[key].lastVisit = b.bookingTime;
+            }
+        });
+
+        const crmList = Object.values(customers).sort((a,b) => b.spent - a.spent); 
+        
+        let html = '';
+        crmList.forEach((c, index) => {
+            if (search && !c.team.toLowerCase().includes(search) && !c.name.toLowerCase().includes(search)) return;
+
+            let rankClass = '';
+            let rankIcon = `#${index + 1}`;
+            if(index === 0) { rankClass = 'rank-gold'; rankIcon = '👑 King'; }
+            if(index === 1) { rankClass = 'rank-silver'; rankIcon = '🥈 2nd'; }
+            if(index === 2) { rankClass = 'rank-bronze'; rankIcon = '🥉 3rd'; }
+
+            let status = c.visits > 10 ? '<span class="status-tag verified">VIP</span>' : 
+                         c.visits > 5 ? '<span class="status-tag" style="background:#3498db">Regular</span>' : 
+                         '<span class="status-tag" style="background:#95a5a6">New</span>';
+
+            html += `<tr>
+                <td class="${rankClass}">${rankIcon}</td>
+                <td style="font-weight:bold;">${c.team}</td>
+                <td>${c.name}<br><small style="color:var(--text-secondary)">${c.contact}</small></td>
+                <td style="text-align:center">${c.visits}</td>
+                <td style="color:var(--success-color); font-weight:bold;">${settings.currency} ${c.spent.toLocaleString()}</td>
+                <td>${new Date(c.lastVisit).toLocaleDateString()}</td>
+                <td>${status}</td>
+            </tr>`;
+        });
+        
+        document.getElementById('crmTableBody').innerHTML = html;
+    }
+
+    function exportCRM() {
+        const customers = {};
+        bookings.forEach(b => {
+            const key = (b.teamName + "_" + b.contactNumber).toLowerCase();
+            if (!customers[key]) {
+                customers[key] = { team: b.teamName, contact: b.contactNumber, name: b.fullName, visits: 0, spent: 0 };
+            }
+            customers[key].visits++;
+            if(b.verified) customers[key].spent += parseFloat(b.bookingAmount);
+        });
+
+        const data = Object.values(customers).map((c, i) => ({
+            "Rank": i+1,
+            "Team": c.team,
+            "Contact": c.name,
+            "Phone": c.contact,
+            "Visits": c.visits,
+            "Total Spent": c.spent
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Customer CRM");
+        XLSX.writeFile(wb, "Customer_CRM.xlsx");
+    }
+
+    // ========== UTILS & EXPORT ==========
+    function exportFinancialReport() {
+        const period = document.querySelector('input[name="incomePeriod"]:checked').value;
+        const dateInput = document.getElementById('incomeDateInput').value || 'All_Time';
+        
+        const data = bookings.map(b => ({
+            "Booking ID": b.bookingId,
+            "Date": b.bookingTime.split('T')[0],
+            "Time": b.bookingTime.split('T')[1],
+            "Customer Name": b.fullName,
+            "Team Name": b.teamName,
+            "Phone": b.contactNumber,
+            "Amount": parseFloat(b.bookingAmount),
+            "Currency": settings.currency,
+            "Payment Method": b.paymentMethod,
+            "Paid Status": b.verified ? "PAID" : "PENDING"
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Financial Report");
+        XLSX.writeFile(wb, `GlobalRush_Report_${period}_${dateInput}.xlsx`);
+    }
+
+    function createBackup() { 
+        let backup = {bookings, settings, notifications, timestamp: new Date()}; 
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "GlobalRush_Backup_" + new Date().toISOString().slice(0,10) + ".json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        addNotification('Backup file downloaded', 'success'); 
+    }
+
+    function showBackupRestore() {
+        let input = document.getElementById('restoreFileInput');
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'file';
+            input.id = 'restoreFileInput';
+            input.accept = '.json';
+            input.style.display = 'none';
+            input.onchange = processRestoreFile;
+            document.body.appendChild(input);
+        }
+        input.click();
+    }
+
+    function processRestoreFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                const newBookings = Array.isArray(data) ? data : (data.bookings || []);
+                if (newBookings.length > 0) {
+                    if(confirm(`Found ${newBookings.length} bookings. Overwrite current data on BOTH phones?`)) {
+                        bookings = newBookings;
+                        if(data.settings) settings = data.settings;
+                        // Deliberate bulk overwrite (user confirmed it): push
+                        // every restored booking to its own cloud document.
+                        const batch = db.batch();
+                        newBookings.forEach(b => { if (b.bookingId) batch.set(bookingsRef.doc(b.bookingId), b); });
+                        batch.commit()
+                            .then(() => { saveAllData(); location.reload(); })
+                            .catch(err => { console.error(err); alert('Restore failed to sync to cloud - check internet and try again.'); });
+                    }
+                } else {
+                    alert("Invalid backup file.");
+                }
+            } catch (err) {
+                alert("Error reading file");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function editBooking(i) {
+        const b = bookings[i];
+        if (!b) return;
+        document.getElementById('editBookingIndex').value = i;
+        document.getElementById('editFullName').value = b.fullName || '';
+        document.getElementById('editTeamName').value = b.teamName || '';
+        document.getElementById('editContactNumber').value = b.contactNumber || '';
+        document.getElementById('editAddress').value = b.address || '';
+        document.getElementById('editBookingAmount').value = b.bookingAmount || '';
+        document.getElementById('editPaymentMethod').value = b.paymentMethod || 'Cash';
+        document.getElementById('editPaymentVerified').value = b.verified ? 'Yes' : 'No';
+        document.getElementById('editBookingModal').style.display = 'flex';
+    }
+
+    function saveEditBooking() {
+        const i = parseInt(document.getElementById('editBookingIndex').value);
+        if (isNaN(i) || !bookings[i]) return;
+        bookings[i].fullName = document.getElementById('editFullName').value;
+        bookings[i].teamName = document.getElementById('editTeamName').value;
+        bookings[i].contactNumber = document.getElementById('editContactNumber').value;
+        bookings[i].address = document.getElementById('editAddress').value;
+        bookings[i].bookingAmount = parseFloat(document.getElementById('editBookingAmount').value) || 0;
+        bookings[i].paymentMethod = document.getElementById('editPaymentMethod').value;
+        bookings[i].verified = document.getElementById('editPaymentVerified').value === 'Yes';
+        bookingsRef.doc(bookings[i].bookingId).set(bookings[i])
+            .catch(err => { console.error(err); addNotification('Could not sync edit to cloud - check internet', 'error'); });
+        saveAllData();
+        filterHistory();
+        updateScheduleBookmark();
+        updateFooterWidget();
+        hideModal('editBookingModal');
+        addNotification(`Booking for ${bookings[i].fullName} updated`, 'success');
+    }
+
+    // ========== CALENDAR ==========
+    function toggleCalendarView() {
+        hideAllSections();
+        document.getElementById('calendarViewContainer').style.display = 'block';
+        document.getElementById('calendarViewContainer').classList.add('active-tab');
+        activeTab = 'calendar';
+        applyBlur();
+        renderCalendar();
+    }
+
+    function renderCalendar() {
+        const year = calendarCurrentDate.getFullYear(), month = calendarCurrentDate.getMonth();
+        document.getElementById('calendarMonthYear').innerText = calendarCurrentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let gridHtml = '';
+        ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => gridHtml += `<div class="calendar-day-header">${d}</div>`);
+        let dayCounter = 1;
+        for (let i = 0; i < 6; i++) {
+            for (let j = 0; j < 7; j++) {
+                if (i === 0 && j < firstDay) { 
+                    gridHtml += '<div class="calendar-cell"></div>'; 
+                } else if (dayCounter <= daysInMonth) {
+                    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dayCounter).padStart(2,'0')}`;
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const isToday = dateStr === todayStr;
+                    const isPast = new Date(dateStr) < new Date(todayStr);
+                    const dayBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateStr));
+                    const bookedCount = dayBookings.length;
+                    const paidCount = dayBookings.filter(b=>b.verified).length;
+                    gridHtml += `<div class="calendar-cell ${isPast?'past':''} ${isToday?'today':''}" onclick="viewDailyBreakdown('${dateStr}')">
+                                    <span class="day-number">${dayCounter}</span>
+                                    ${isPast && bookedCount === 0 ? '<span style="font-size:11px; color:var(--text-secondary);">Closed</span>' : bookedCount>0 ? `<span class="booking-count">${bookedCount} book</span>` : '<span style="font-size:11px; color:var(--success-color);">Free</span>'}
+                                    ${paidCount>0 ? `<span class="booking-indicator">✅ ${paidCount} paid</span>` : ''}
+                                </div>`;
+                    dayCounter++;
+                } else { 
+                    gridHtml += '<div class="calendar-cell"></div>'; 
+                }
+            }
+        }
+        document.getElementById('calendarGrid').innerHTML = gridHtml;
+    }
+
+    function changeCalendarMonth(delta) { 
+        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth()+delta); 
+        renderCalendar(); 
+    }
+    
+    function viewDailyBreakdown(dateStr) {
+        const dayBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateStr)).sort((a,b)=> a.bookingTime.localeCompare(b.bookingTime));
+        const modal = document.getElementById('calendarDayModal');
+        const title = document.getElementById('calendarDayModalTitle');
+        const body = document.getElementById('calendarDayModalBody');
+        title.textContent = `📅 Bookings for ${new Date(dateStr).toLocaleDateString('en-US',{dateStyle:'long'})}`;
+        if (dayBookings.length === 0) {
+            body.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-secondary);">No bookings for this day.</div>';
+        } else {
+            body.innerHTML = dayBookings.map((b, i) => {
+                const time = b.bookingTime.split('T')[1]?.substring(0,5) || '';
+                const h = parseInt(time.split(':')[0]);
+                const partition = (h >= 6 && h < 18) ? '🌞 Day' : '🌙 Night';
+                return `<div style="padding:12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <div style="font-weight:bold; color:var(--highlight-yellow);">${time} &nbsp; <span style="font-size:12px;">${partition}</span></div>
+                        <div style="margin-top:4px;">${b.fullName} &mdash; <em>${b.teamName}</em></div>
+                        <div style="font-size:12px; color:var(--text-secondary);">${b.bookingId} &nbsp;|&nbsp; ${b.duration || 1}h &nbsp;|&nbsp; ${settings.currency} ${b.bookingAmount}</div>
+                    </div>
+                    <span class="${b.verified ? 'badge-paid' : 'badge-unpaid'}">${b.verified ? 'Paid' : 'Unpaid'}</span>
+                </div>`;
+            }).join('');
+        }
+        modal.style.display = 'flex';
+    }
+
+    // ========== OTHER ==========
+    function generateThemes() {
+        const g = document.getElementById('themeGrid'); 
+        if (!g) return;
+        g.innerHTML = '';
+        ['#3498db','#2ecc71','#e74c3c','#f1c40f','#9b59b6','#1abc9c','#d35400','#c0392b','#2980b9','#27ae60'].forEach(c => {
+            let d = document.createElement('div'); 
+            d.className = 'theme-option'; 
+            d.style.backgroundColor = c;
+            d.onclick = ()=> applyTheme(c); 
+            g.appendChild(d);
+        });
+    }
+
+    function applyTheme(color) { 
+        document.documentElement.style.setProperty('--accent-color', color); 
+        settings.theme = color;
+    }
+
+    function updateFooterWidget() {
+        const today = new Date().toISOString().split('T')[0];
+        const todayBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(today));
+        const count = todayBookings.length;
+        const paid = todayBookings.filter(b => b.verified).length;
+        const widget = document.getElementById('footerSummaryWidget');
+        if (widget) widget.innerHTML = `📋 Today: ${count} book | 💰 ${paid} paid | ⏳ ${count-paid} unpaid`;
+    }
+
+    function saveAllData() { 
+        // Bookings now live in Firestore (see the specific bookingsRef calls
+        // next to each add/edit/delete/toggle below). Only notifications
+        // stay local to each device.
+        localStorage.setItem('arenaNotifications', JSON.stringify(notifications)); 
+    }
+
+    function loadAllData() { 
+        notifications = JSON.parse(localStorage.getItem('arenaNotifications')) || []; 
+    }
+
+    // Realtime cloud listener: fires immediately on load, then again every
+    // time ANY device (this one or the other owner's phone) adds, edits,
+    // toggles, or deletes a booking. It always rebuilds `bookings` from the
+    // server's collection, so both phones stay in sync automatically and
+    // nothing gets locally overwritten.
+    function listenForBookings() {
+        bookingsRef.onSnapshot(snapshot => {
+            bookings = snapshot.docs.map(doc => doc.data());
+            cloudReady = true;
+            updateScheduleBookmark();
+            updateFooterWidget();
+            updateLiveBookingStatus();
+            updateBookingSlots();
+            filterHistory();
+        }, err => {
+            console.error('Cloud sync error:', err);
+            addNotification('Cloud sync error - check your internet connection', 'error');
+        });
+    }
+
+    function updateClock() { 
+        const now = new Date(); 
+        let clockEl = document.getElementById('liveClock');
+        if (clockEl) clockEl.textContent = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}); 
+        updateLiveBookingStatus(); 
+    }
+
+    function updateLiveBookingStatus() {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const currentHour = now.getHours().toString().padStart(2,'0') + ':00';
+        const activeBooking = bookings.find(b => b.bookingTime === `${today}T${currentHour}`);
+        const header = document.getElementById('liveStatusHeader');
+        const details = document.getElementById('liveStatusDetails');
+        
+        if (activeBooking) {
+            // Fix: set id-safe class — remove old status classes, add new one
+            header.className = 'live';
+            header.id = 'liveStatusHeader';
+            header.innerHTML = `<span class="status-dot blinking-dot"></span>🔴 LIVE ON PITCH`;
+            details.innerHTML = `
+                <p><strong>Booking ID:</strong> ${activeBooking.bookingId}</p>
+                <p><strong>Customer:</strong> ${activeBooking.fullName} (${activeBooking.teamName})</p>
+                <p><strong>Slot:</strong> ${activeBooking.bookingTime.split('T')[1]} (${activeBooking.duration || 1}h)</p>
+            `;
+        } else {
+            const future = bookings.filter(b => new Date(b.bookingTime) > now).sort((a,b)=>new Date(a.bookingTime)-new Date(b.bookingTime));
+            const next = future[0];
+            if (next) {
+                header.className = 'upcoming';
+                header.id = 'liveStatusHeader';
+                header.innerHTML = `<span class="status-dot static-dot"></span>⏳ UPCOMING`;
+                details.innerHTML = `
+                    <p><strong>Customer:</strong> ${next.fullName}</p>
+                    <p><strong>Starts:</strong> ${new Date(next.bookingTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</p>
+                `;
+            } else {
+                header.className = 'available';
+                header.id = 'liveStatusHeader';
+                header.innerHTML = `<span class="status-dot" style="background:var(--success-color);"></span>✅ AVAILABLE`;
+                details.innerHTML = '<p>No upcoming bookings.</p>';
+            }
+        }
+    }
+
+    function updateScheduleTitle() { 
+        let el = document.getElementById('scheduleTitle');
+        if (el) el.innerText = new Date().toLocaleDateString('en-US',{dateStyle:'long'})+' Schedule'; 
+    }
+    
+    function updateScheduleBookmark() {
+        let list = document.getElementById('scheduleList'); 
+        if (!list) return;
+        list.innerHTML = ''; 
+        let today = new Date().toISOString().split('T')[0]; 
+        let todaysBookings = bookings.filter(b=>b.bookingTime && b.bookingTime.startsWith(today));
+        
+        for (let i=0;i<24;i++) {
+            let hour = i.toString().padStart(2,'0')+':00'; 
+            let b = todaysBookings.find(x=>x.bookingTime && x.bookingTime.includes('T'+hour));
+            let d = document.createElement('div'); 
+            d.className = 'schedule-slot '+(b?'booked':'free');
+            let startHour12 = i%12||12, ap = i<12?'AM':'PM';
+            d.innerHTML = `<div><strong>${startHour12} ${ap} - ${(i+1)%12||12} ${i+1<12?'AM':'PM'}</strong> <span class="day-night-label">${i>=6&&i<18?'Day':'Night'}</span></div>` +
+                (b? `<div class="details">${b.fullName || ''} | <span class="payment-status ${b.verified?'paid':'unpaid'}">${b.verified?'Paid':'Unpaid'}</span></div>` : '<div>Available</div>');
+            list.appendChild(d);
+        }
+    }
+    
+    function showReceiptModal(b) {
+        document.getElementById('receiptTitle').textContent = b.verified ? '✅ Booking Confirmed!' : '⏳ Pending Payment';
+        document.getElementById('receiptIcon').className = 'receipt-icon ' + (b.verified ? 'success' : 'pending');
+        document.getElementById('receiptBookingId').textContent = b.bookingId;
+        document.getElementById('receiptNameAndTeam').textContent = `${b.fullName} (${b.teamName})`;
+        document.getElementById('receiptContact').textContent = b.contactNumber;
+        document.getElementById('receiptBookingTime').textContent = new Date(b.bookingTime).toLocaleString();
+        // Fix: fill partition field
+        const h = new Date(b.bookingTime).getHours();
+        document.getElementById('receiptTimePartition').textContent = (h >= 6 && h < 18) ? '🌞 Day' : '🌙 Night';
+        // Fix: fill duration field
+        document.getElementById('receiptDuration').textContent = (b.duration || 1) + ' Hour(s)';
+        document.getElementById('receiptAmount').textContent = `${settings.currency} ${b.bookingAmount}`;
+        document.getElementById('receiptPaymentMethod').textContent = b.paymentMethod;
+        document.getElementById('receiptPaymentStatus').textContent = b.verified ? '✅ Paid' : '❌ Unpaid';
+        // Fix: fill submission date
+        document.getElementById('receiptSubmissionDate').textContent = b.submissionDateTime ? new Date(b.submissionDateTime).toLocaleString() : new Date().toLocaleString();
+        // Fix: show arena logo on receipt if uploaded
+        const savedLogo = localStorage.getItem('arenaSavedLogo');
+        const logoImg = document.getElementById('receiptLogoImg');
+        if (savedLogo && logoImg) { logoImg.src = savedLogo; logoImg.style.display = 'block'; }
+        else if (logoImg) { logoImg.style.display = 'none'; }
+        // Update arena name on receipt
+        document.getElementById('receiptArenaName').textContent = settings.arenaName || 'THE GLOBAL RUSH ARENA';
+        document.getElementById('receiptModal').style.display = 'block';
+    }
+
+    function printReceipt() { window.print(); }
+    function saveReceipt() { 
+        // Fix: capture the full modal content including title and icon area
+        html2canvas(document.querySelector('.receipt-modal-content'), { backgroundColor: '#1a1a2e', scale: 2 }).then(c => {
+            let a = document.createElement('a'); a.download = 'GlobalRush_Receipt_' + document.getElementById('receiptBookingId').textContent + '.png'; a.href = c.toDataURL(); a.click();
+        }); 
+    }
+    function shareReceiptWhatsApp() {
+        const id = document.getElementById('receiptBookingId').textContent;
+        const nameTeam = document.getElementById('receiptNameAndTeam').textContent;
+        const slot = document.getElementById('receiptBookingTime').textContent;
+        const amount = document.getElementById('receiptAmount').textContent;
+        const status = document.getElementById('receiptPaymentStatus').textContent;
+        const duration = document.getElementById('receiptDuration').textContent;
+        const arenaName = document.getElementById('receiptArenaName').textContent;
+        const msg = `🏟️ *${arenaName}*\n━━━━━━━━━━━━━━\n✅ *Booking Receipt*\n\n📋 ID: ${id}\n👤 ${nameTeam}\n📅 Slot: ${slot}\n⏱️ Duration: ${duration}\n💰 Amount: ${amount}\n💳 Status: ${status}\n\nThank you for booking!`;
+        window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    }
+    function copyReceiptText() {
+        const id = document.getElementById('receiptBookingId').textContent;
+        const nameTeam = document.getElementById('receiptNameAndTeam').textContent;
+        const slot = document.getElementById('receiptBookingTime').textContent;
+        const amount = document.getElementById('receiptAmount').textContent;
+        const status = document.getElementById('receiptPaymentStatus').textContent;
+        const arenaName = document.getElementById('receiptArenaName').textContent;
+        const msg = `${arenaName} | Booking Receipt\nID: ${id}\n${nameTeam}\nSlot: ${slot}\nAmount: ${amount}\nStatus: ${status}`;
+        navigator.clipboard.writeText(msg).then(() => { addNotification('Receipt copied to clipboard', 'success'); });
+    }
+    function hideReceiptModal() { 
+        document.getElementById('receiptModal').style.display = 'none'; 
+        clearForm(); 
+        showDashboard(); 
+    }
+    
+    function printHistory() {
+        // Fix: set history print date label
+        const dateFilter = document.getElementById('historyDateFilter').value;
+        const el = document.getElementById('printHistoryDate');
+        if (el) el.textContent = dateFilter ? new Date(dateFilter).toLocaleDateString('en-US',{dateStyle:'long'}) + ' — Booking Report' : 'All Bookings Report';
+        window.print();
+    }
+    function toggleDarkMode() { 
+        document.body.classList.toggle('dark-mode'); 
+        // Fix: update button icon to reflect state
+        const btn = document.querySelector('.quick-action-btn[onclick*="toggleDarkMode"]');
+        if (btn) btn.title = document.body.classList.contains('dark-mode') ? 'Disable Dark Mode' : 'Enable Dark Mode';
+        btn.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+    }
+    function showSystemSettings() { toggleSettings(); }
+</script>
+</body>
+</html>
