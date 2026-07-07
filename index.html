@@ -105,12 +105,48 @@
 
     /* CONTROLS */
     .top-controls-right {
-        position: absolute;
-        top: 20px;
-        right: 20px;
+        position: fixed;
+        top: calc(16px + env(safe-area-inset-top, 0px));
+        bottom: auto;
+        right: calc(16px + env(safe-area-inset-right, 0px));
         display: flex;
+        flex-direction: row;
         gap: 10px;
-        z-index: 100;
+        z-index: 1000;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    /* Hidden while a tab/section is open (focus mode) - reappears only back on the main dashboard */
+    .top-controls-right.controls-hidden {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.9);
+        pointer-events: none;
+    }
+
+    /* Advanced multi-hour booking selector */
+    .hour-count-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+    .hour-count-btn {
+        flex: 1; min-width: 46px; padding: 10px 4px; border-radius: 10px;
+        border: 1px solid var(--border-color); background: rgba(255,255,255,0.06);
+        color: var(--text-primary); font-size: 17px; font-weight: bold; cursor: pointer;
+        display: flex; flex-direction: column; align-items: center; gap: 1px;
+        transition: all 0.2s ease;
+    }
+    .hour-count-btn span { font-size: 10px; font-weight: normal; color: var(--text-secondary); text-transform: uppercase; }
+    .hour-count-btn:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
+    .hour-count-btn.active {
+        background: linear-gradient(145deg, var(--accent-color), #1d6fa5);
+        border-color: var(--accent-color); color: #fff;
+        box-shadow: 0 4px 14px rgba(52,152,219,0.4); transform: translateY(-2px);
+    }
+    .hour-count-btn.active span { color: rgba(255,255,255,0.85); }
+
+    /* Multi-hour breakdown rows */
+    .hourly-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; }
+    .hourly-row-badge {
+        min-width: 26px; height: 26px; border-radius: 50%; background: var(--accent-color); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; flex-shrink: 0;
     }
     .top-controls-right button {
         background: rgba(255, 255, 255, 0.1);
@@ -248,7 +284,7 @@
     }
     
     /* GLASS CONTAINERS */
-    #bookingForm, #bookingHistoryContainer, #arenaManagementContainer, #settingsContainer, #calendarViewContainer, #incomeAnalyticsContainer, #customerCRMContainer {
+    #bookingForm, #bookingHistoryContainer, #arenaManagementContainer, #settingsContainer, #calendarViewContainer, #incomeAnalyticsContainer, #customerCRMContainer, #duesContainer, #expenditureContainer {
       background: var(--primary-glass-bg);
       border-radius: 16px;
       border: 1px solid rgba(255, 255, 255, 0.18);
@@ -321,6 +357,8 @@
     .income-table td { padding: 10px; border-bottom: 1px solid var(--border-color); }
     .badge-paid { background: var(--success-color); color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
     .badge-unpaid { background: var(--error-color); color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
+    .badge-partial { background: #3498db; color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
+    .badge-waived { background: #7f8c8d; color: white; padding: 4px 8px; border-radius: 20px; font-size: 12px; }
     
     /* Form and misc */
     .form-row { display: flex; gap: 15px; margin-bottom: 10px; }
@@ -348,6 +386,16 @@
     .arena-feature-card { background: rgba(26, 26, 46, 0.7); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.3s ease; backdrop-filter: blur(10px); height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .arena-feature-card:hover { background: rgba(52, 152, 219, 0.2); transform: translateY(-3px); border-color: var(--accent-color); }
     .arena-feature-icon { font-size: 32px; margin-bottom: 10px; }
+    /* Clean, consistent SVG icon badges (replaces emoji, which render
+       inconsistently - or as blank boxes - across devices/fonts). */
+    .arena-feature-icon-badge {
+        width: 52px; height: 52px; border-radius: 14px; margin-bottom: 10px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--badge-bg, rgba(52,152,219,0.15));
+        transition: all 0.3s ease;
+    }
+    .arena-feature-icon-badge svg { width: 26px; height: 26px; stroke: var(--badge-color, #3498db); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .arena-feature-card:hover .arena-feature-icon-badge { transform: scale(1.08); }
     .arena-feature-card h3 { font-size: 1.1em; margin: 5px 0; color: var(--highlight-yellow); }
     
     /* Settings */
@@ -364,12 +412,54 @@
     .settings-tab-content.active { display: block; }
     
     /* Receipt */
-    #receiptModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); padding-top: 50px; backdrop-filter: blur(8px); animation: fadeSlideIn 0.3s; }
-    .receipt-modal-content { margin: auto; padding: 30px; width: 80%; max-width: 500px; text-align: center; background: var(--primary-glass-bg); border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(15px); box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
-    .receipt-icon { width: 80px; height: 80px; border-radius: 50%; margin: 20px auto; border-width: 4px; border-style: solid; }
-    .receipt-icon.success { border-color: var(--success-color); animation: scale-up 0.5s; }
-    .receipt-icon.pending { border-color: var(--highlight-yellow); }
-    #receiptContent { text-align: left; margin-top: 20px; padding: 20px; background-color: #fff; color: #000; border-radius: 5px; }
+    #receiptModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); padding-top: 30px; backdrop-filter: blur(8px); animation: fadeSlideIn 0.3s; }
+    .receipt-modal-content { margin: auto; padding: 20px 20px 24px; width: 92%; max-width: 420px; text-align: center; background: var(--primary-glass-bg); border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(15px); box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    .receipt-icon { width: 56px; height: 56px; border-radius: 50%; margin: 4px auto 10px auto; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .receipt-icon.success { background: rgba(46,204,113,0.15); border: 2px solid var(--success-color); color: var(--success-color); animation: scale-up 0.5s; }
+    .receipt-icon.pending { background: rgba(241,196,15,0.15); border: 2px solid var(--highlight-yellow); color: var(--highlight-yellow); }
+    #receiptTitle { font-size: 17px; margin: 0 0 4px 0; }
+
+    /* Professional invoice-style card - compact for phone screens */
+    #receiptContent { text-align: left; margin-top: 6px; background-color: #fff; color: #1a1a2e; border-radius: 12px; font-family: 'Roboto', Arial, sans-serif; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+    .receipt-doc-header { text-align: center; padding: 16px 16px 12px; background: linear-gradient(135deg, #2c3e82, #3f5cc9); color: #fff; }
+    .receipt-doc-header img#receiptLogoImg { border: 2px solid rgba(255,255,255,0.6); }
+    .receipt-doc-header h3 { margin: 6px 0 4px 0; font-size: 18px; letter-spacing: 0.5px; color: #fff; }
+    .receipt-contact-line { font-size: 10.5px; color: rgba(255,255,255,0.85); display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+    .receipt-body { padding: 14px 16px 16px; }
+    .receipt-top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .receipt-bookedby .receipt-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #2c3e82; font-weight: bold; margin-bottom: 2px; }
+    .receipt-bookedby div.receipt-name { font-size: 14px; font-weight: bold; }
+    .receipt-bookedby div.receipt-contact-val { font-size: 12px; color: #555; }
+    .receipt-doc-title { text-align: right; font-size: 11px; color: #555; }
+    .receipt-doc-title .receipt-receipt-word { font-size: 18px; font-weight: bold; color: #2c3e82; letter-spacing: 1.5px; }
+    .receipt-details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 14px; background: #f4f6fb; border: 1px solid #e2e6f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; }
+    .receipt-details-grid .receipt-label { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; color: #888; margin-bottom: 1px; }
+    .receipt-items-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 2px; }
+    .receipt-items-table th { text-align: left; background: #2c3e82; color: #fff; padding: 6px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .receipt-items-table th:last-child, .receipt-items-table td:last-child { text-align: right; }
+    .receipt-items-table td { padding: 5px 8px; border-bottom: 1px solid #eef0f6; }
+    .receipt-items-table tfoot td { padding: 5px 8px; border-bottom: none; }
+    .receipt-total-row td { font-size: 14px; font-weight: bold; color: #2c3e82; border-top: 2px solid #2c3e82; padding-top: 8px; }
+    .receipt-notes { margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; font-size: 11px; color: #777; text-align: center; font-style: italic; }
+
+    /* Receipt action toolbar: compact single-line icon buttons */
+    .receipt-buttons {
+        display: flex; gap: 6px; margin-top: 16px; flex-wrap: nowrap;
+    }
+    .receipt-buttons button {
+        flex: 1; min-width: 0; padding: 9px 2px; font-size: 10.5px; font-weight: 600;
+        border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color);
+        box-shadow: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    }
+    .receipt-buttons button:hover { background: rgba(255,255,255,0.16); transform: translateY(-2px); box-shadow: none; }
+    .receipt-buttons button .rb-icon { font-size: 15px; line-height: 1; }
+    .receipt-buttons button.rb-close { background: rgba(231,76,60,0.15); border-color: rgba(231,76,60,0.4); }
+    .receipt-buttons button.rb-whatsapp { background: rgba(37,211,102,0.15); border-color: rgba(37,211,102,0.4); }
+    @media (max-width: 480px) {
+        .receipt-top-row { flex-direction: column; gap: 4px; }
+        .receipt-doc-title { text-align: left; }
+        .receipt-details-grid { grid-template-columns: 1fr 1fr; }
+    }
     
     /* Quick actions */
     .quick-actions-panel { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 1000; }
@@ -545,12 +635,10 @@
         .receipt-modal-content { margin: 0 !important; width: 100% !important; max-width: 100% !important; background: #fff !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; border-radius: 0 !important; padding: 10mm !important; }
         #receiptTitle { color: #000 !important; font-size: 22px !important; text-align: center; margin: 6px 0 !important; }
         .receipt-icon { display: none !important; }
-        #receiptContent { background: #fff !important; color: #000 !important; border: 1px solid #ccc !important; border-radius: 8px !important; padding: 16px !important; margin-top: 10px !important; }
-        #receiptContent h3 { font-size: 18px; text-align: center; margin-bottom: 4px; color: #000 !important; }
-        #receiptContent h4 { font-size: 13px; text-align: center; color: #444 !important; margin-bottom: 12px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
-        #receiptContent p { margin: 6px 0; font-size: 13px; color: #000 !important; }
-        #receiptContent strong { color: #000 !important; }
+        #receiptContent { background: #fff !important; color: #1a1a2e !important; border: 1px solid #ccc !important; border-radius: 8px !important; padding: 16px !important; margin-top: 10px !important; }
+        #receiptContent h3 { color: #2c3e82 !important; }
         #receiptLogoImg { display: block !important; max-height: 60px !important; margin: 0 auto 8px auto !important; }
+        .receipt-items-table th { background: #2c3e82 !important; color: #fff !important; }
         /* History Print */
         #bookingHistoryContainer { display: block !important; position: static !important; background: #fff !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; color: #000 !important; padding: 10mm !important; width: 100% !important; max-width: 100% !important; }
         #bookingHistoryContainer .arena-header, #bookingHistoryContainer .history-controls { display: none !important; }
@@ -595,11 +683,12 @@
       max-height: 80px !important;
     }
 
-    /* Top-right controls — shift down so they don't overlap logo */
+    /* Settings / Notification buttons — fixed top-right, clear of the phone's back/gesture bar */
     .top-controls-right {
-      top: 10px !important;
-      right: 10px !important;
-      gap: 6px !important;
+      top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+      bottom: auto !important;
+      right: calc(12px + env(safe-area-inset-right, 0px)) !important;
+      gap: 8px !important;
     }
     .top-controls-right button {
       width: 42px !important;
@@ -661,7 +750,7 @@
     /* Glass panel containers */
     #bookingForm, #bookingHistoryContainer, #arenaManagementContainer,
     #settingsContainer, #calendarViewContainer, #incomeAnalyticsContainer,
-    #customerCRMContainer {
+    #customerCRMContainer, #duesContainer, #expenditureContainer {
       margin: 0 !important;
       padding: 14px !important;
       border-radius: 0 !important;
@@ -706,6 +795,8 @@
       padding: 10px !important;
     }
     .arena-feature-icon { font-size: 24px !important; margin-bottom: 6px !important; }
+    .arena-feature-icon-badge { width: 40px !important; height: 40px !important; border-radius: 11px !important; margin-bottom: 6px !important; }
+    .arena-feature-icon-badge svg { width: 20px !important; height: 20px !important; }
     .arena-feature-card h3 { font-size: 0.9em !important; }
     .arena-feature-card p { font-size: 11px !important; }
 
@@ -777,14 +868,9 @@
       width: 95% !important;
       padding: 16px !important;
     }
-    .receipt-buttons {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
-      gap: 8px !important;
-    }
     .receipt-buttons button {
-      padding: 10px 8px !important;
-      font-size: 13px !important;
+      font-size: 10px !important;
+      padding: 8px 2px !important;
     }
 
     /* Modals */
@@ -841,9 +927,90 @@
     }
   }
   /* END ANDROID MOBILE OPTIMIZATIONS */
+
+  /* ================= ADMIN LOGIN LOCK SCREEN ================= */
+  .container { display: none; } /* hidden until login succeeds; JS reveals it */
+  #loginScreen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10,10,20,0.97);
+    backdrop-filter: blur(10px);
+    z-index: 999999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  }
+  #loginScreen.hidden { display: none; }
+  .login-card {
+    background: var(--primary-glass-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 36px 28px;
+    max-width: 380px; width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  }
+  .login-card h2 { margin-top: 0; color: var(--highlight-yellow); letter-spacing: 1px; }
+  .login-card .form-group { text-align: left; margin-bottom: 16px; }
+  .login-card .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-secondary); }
+  .login-card input {
+    width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.08); color: var(--text-primary); font-size: 16px; box-sizing: border-box;
+  }
+  .login-card button {
+    width: 100%; padding: 12px; border-radius: 8px; border: none; cursor: pointer;
+    background: linear-gradient(145deg,#2ecc71,#27ae60); color: #fff; font-weight: bold; font-size: 16px; margin-top: 6px;
+  }
+  .login-card .login-error { color: var(--error-color); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  #loginLoading { display: none; margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
   </style>
 </head>
 <body>
+
+<!-- ================= ADMIN LOGIN LOCK SCREEN ================= -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2 id="loginTitle">🔒 Admin Login</h2>
+    <p style="color:var(--text-secondary); font-size:13px;" id="loginSubtitle">Enter your CNIC and password to continue.</p>
+
+    <!-- LOGIN FORM (shown when an admin account already exists) -->
+    <div id="loginFormFields" style="display:none;">
+      <div class="form-group">
+        <label>CNIC</label>
+        <input type="text" id="loginCnic" placeholder="e.g. 3520112345671" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter password">
+      </div>
+      <button onclick="handleLogin()">Unlock</button>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:13px; color:var(--text-secondary); text-align:left;">
+        <input type="checkbox" id="rememberDevice" checked style="width:auto;"> Remember this device
+      </label>
+    </div>
+
+    <!-- FIRST-TIME SETUP FORM (shown only once, when no admin account exists yet) -->
+    <div id="setupFormFields" style="display:none;">
+      <p style="color:var(--highlight-yellow); font-size:13px;">No admin account yet — create one now. This only happens once.</p>
+      <div class="form-group">
+        <label>CNIC</label>
+        <input type="text" id="setupCnic" placeholder="e.g. 3520112345671" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label>Choose Password</label>
+        <input type="password" id="setupPassword" placeholder="At least 6 characters">
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="setupPasswordConfirm" placeholder="Re-enter password">
+      </div>
+      <button onclick="handleSetup()">Create Admin Account</button>
+    </div>
+
+    <div class="login-error" id="loginError"></div>
+    <button id="loginRetryBtn" onclick="checkLoginStatus()" style="display:none; background:rgba(255,255,255,0.15); margin-top:8px;">🔄 Retry</button>
+    <div id="loginLoading">Checking...</div>
+  </div>
+</div>
+
 <div class="container">
     <div class="top-controls-right">
         <button onclick="toggleSettings()" title="Settings"><span class="icon-button">⚙️</span></button>
@@ -892,17 +1059,63 @@
         </div>
         <div class="form-row">
             <div class="form-group"><label>Time Partition</label><select id="timePartition" onchange="updateBookingSlots()"><option value="all">All Times</option><option value="day">Day (6 AM - 6 PM)</option><option value="night">Night (7 PM - 5 AM)</option></select></div>
-            <div class="form-group"><label>Booking Time Slot</label><select id="bookingHour" required></select><div class="error-message" id="bookingHourError">Required</div></div>
+            <div class="form-group"><label id="bookingHourLabel">Booking Time Slot</label><select id="bookingHour" required onchange="updateHourlyBreakdown()"></select><div class="error-message" id="bookingHourError">Required</div><div id="bookingHourHint" style="display:none; font-size:11px; color:var(--text-secondary); margin-top:4px;">Set per-hour below ⬇️</div></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label>Booking Amount</label><input type="number" id="bookingAmount"><div class="error-message" id="bookingAmountError">Required</div></div>
-            <div class="form-group"><label>Duration (Hours)</label><select id="bookingDuration"><option value="1">1 Hour</option><option value="2">2 Hours</option><option value="3">3 Hours</option><option value="4">4 Hours</option><option value="5">5 Hours</option><option value="6">6 Hours</option></select></div>
+            <div class="form-group"><label>Booking Amount</label><input type="number" id="bookingAmount" oninput="updateDuePreview()"><div class="error-message" id="bookingAmountError">Required</div></div>
+            <div class="form-group">
+                <label>Hours To Book</label>
+                <div class="hour-count-selector" id="hourCountSelector">
+                    <button type="button" class="hour-count-btn active" data-count="1" onclick="selectHourCount(1)">1<span>hr</span></button>
+                    <button type="button" class="hour-count-btn" data-count="2" onclick="selectHourCount(2)">2<span>hrs</span></button>
+                    <button type="button" class="hour-count-btn" data-count="3" onclick="selectHourCount(3)">3<span>hrs</span></button>
+                    <button type="button" class="hour-count-btn" data-count="4" onclick="selectHourCount(4)">4<span>hrs</span></button>
+                    <button type="button" class="hour-count-btn" data-count="5" onclick="selectHourCount(5)">5<span>hrs</span></button>
+                    <button type="button" class="hour-count-btn" data-count="6" onclick="selectHourCount(6)">6<span>hrs</span></button>
+                </div>
+                <input type="hidden" id="bookingDuration" value="1">
+            </div>
             <div class="form-group"><label>Payment Method</label><select id="paymentMethod"><option value="" disabled selected>Select</option><option value="Cash">Cash</option><option value="By Hand Cash">By Hand Cash</option><option value="Bank Transfer">Bank Transfer</option><option value="JazzCash">JazzCash</option><option value="EasyPaisa">EasyPaisa</option><option value="Card">Card</option><option value="Cheque">Cheque</option></select><div class="error-message" id="paymentMethodError">Required</div></div>
-            <div class="form-group"><label>Payment Verified</label><select id="paymentVerified"><option value="" disabled selected>Select Status</option><option value="Yes">Yes</option><option value="No">No</option></select><div class="error-message" id="paymentVerifiedError">Required</div></div>
+            <div class="form-group"><label>Payment Verified</label><select id="paymentVerified" onchange="updateDuePreview()"><option value="" disabled selected>Select Status</option><option value="Yes">Yes</option><option value="No">No</option></select><div class="error-message" id="paymentVerifiedError">Required</div></div>
+        </div>
+
+        <!-- Appears automatically when Duration is 2+ hours. Each hour of the
+             booking gets its own time-slot picker + amount box, so hours don't
+             have to be booked back-to-back - any available hour can be picked
+             for any row, and day/night rates can differ per hour. -->
+        <div id="hourlyBreakdownContainer" style="display:none; margin-bottom:16px; padding:14px; border:1px solid var(--accent-color); border-radius:10px; background:rgba(255,255,255,0.04);">
+            <label style="display:block; margin-bottom:10px; color:var(--highlight-yellow); font-weight:bold;">⏱️ Choose Time Slot & Amount For Each Hour</label>
+            <div id="hourlyBreakdownList" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <div style="margin-top:8px; font-size:12px; color:var(--text-secondary);">Pick any available hour for each row (they don't need to be back-to-back). Amounts add up automatically into the Booking Amount above.</div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Amount Paid Now</label><input type="number" id="amountPaid" placeholder="Leave blank to auto-fill" oninput="updateDuePreview()"></div>
+            <div class="form-group"><label>Amount Still Due</label><input type="text" id="dueAmountPreview" readonly style="opacity:0.85; cursor:not-allowed;"></div>
         </div>
         <div class="form-buttons">
             <button onclick="submitBooking()" style="background: linear-gradient(145deg, #2ecc71, #27ae60);">Submit Booking</button>
             <button onclick="clearForm()" style="background: rgba(255,255,255,0.15);">Clear</button>
+        </div>
+
+        <!-- Shown automatically right after a booking is submitted, so staff can immediately
+             continue booking the next hour(s) for the same customer without retyping details. -->
+        <div id="nextSlotPanel" style="display:none; margin-top:22px; padding:18px; border:1px solid var(--accent-color); border-radius:10px; background:rgba(255,255,255,0.05);">
+            <h3 style="margin-top:0; color:var(--highlight-yellow);">⏭️ Continue This Booking?</h3>
+            <p id="nextSlotInfo" style="color:var(--text-secondary); font-size:14px; margin-bottom:16px;"></p>
+            <div class="form-row">
+                <div class="form-group"><label>Next Booking Time Slot</label><select id="nextSlotHour"></select></div>
+                <div class="form-group"><label>Duration (Hours)</label>
+                    <select id="nextSlotDuration" onchange="updateNextSlotAmount()">
+                        <option value="1">1 Hour</option><option value="2">2 Hours</option><option value="3">3 Hours</option><option value="4">4 Hours</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Amount for Next Booking</label><input type="number" id="nextSlotAmount"></div>
+                <div class="form-group"><label>Payment Verified</label><select id="nextSlotVerified"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+            </div>
+            <div class="form-buttons">
+                <button id="addNextSlotBtn" onclick="addNextSlotBooking()" style="background: linear-gradient(145deg, #2ecc71, #27ae60);">➕ Add This Booking</button>
+                <button onclick="dismissNextSlotPanel()" style="background: rgba(255,255,255,0.15);">No Thanks</button>
+            </div>
         </div>
     </div>
 
@@ -928,16 +1141,70 @@
             <button class="back-button-top" onclick="showDashboard()">← Back</button>
         </div>
         <div class="arena-management-grid">
-            <div class="arena-feature-card" onclick="toggleBookingHistory()"><div class="arena-feature-icon">📋</div><h3>Booking History</h3><p>View & manage bookings</p></div>
-            <div class="arena-feature-card" onclick="showIncomeAnalytics()"><div class="arena-feature-icon">📊</div><h3>Income Analytics</h3><p>Revenue, Charts & Reports</p></div>
-            <div class="arena-feature-card" onclick="toggleCRM()"><div class="arena-feature-icon">👥</div><h3>Customer CRM</h3><p>Loyalty & History</p></div>
-            <div class="arena-feature-card" onclick="createBackup()"><div class="arena-feature-icon">💾</div><h3>Create Backup</h3><p>Backup system data</p></div>
-            <div class="arena-feature-card" onclick="showBackupRestore()"><div class="arena-feature-icon">🔄</div><h3>Restore Data</h3><p>Import from backup</p></div>
-            <div class="arena-feature-card" onclick="showSystemSettings()"><div class="arena-feature-icon">⚙️</div><h3>System Settings</h3><p>Configure system</p></div>
+            <div class="arena-feature-card" onclick="toggleBookingHistory()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(52,152,219,0.15); --badge-color:#3498db;"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div><h3>Booking History</h3><p>View & manage bookings</p></div>
+            <div class="arena-feature-card" onclick="toggleDues()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(230,126,34,0.15); --badge-color:#e67e22;"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="17" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg></div><h3>Dues & Payments</h3><p>Track unpaid & partial payments</p></div>
+            <div class="arena-feature-card" onclick="showIncomeAnalytics()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(46,204,113,0.15); --badge-color:#2ecc71;"><svg viewBox="0 0 24 24"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="19" y1="20" x2="19" y2="14"/></svg></div><h3>Income Analytics</h3><p>Revenue, Charts & Reports</p></div>
+            <div class="arena-feature-card" onclick="toggleCRM()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(155,89,182,0.15); --badge-color:#9b59b6;"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.2 13.6c2.6 0.2 4.3 2.1 4.3 5.4"/></svg></div><h3>Customer CRM</h3><p>Loyalty & History</p></div>
+            <div class="arena-feature-card" onclick="toggleExpenditure()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(231,76,60,0.15); --badge-color:#e74c3c;"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-2.5-1.6L13 22l-2.5-1.6L8 22l-2-1.6z"/><line x1="8.5" y1="7" x2="15.5" y2="7"/><line x1="8.5" y1="11" x2="15.5" y2="11"/><line x1="8.5" y1="15" x2="13" y2="15"/></svg></div><h3>Arena Expenditure</h3><p>Daily/monthly costs & profit</p></div>
+            <div class="arena-feature-card" onclick="createBackup()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(26,188,156,0.15); --badge-color:#1abc9c;"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 19h16"/></svg></div><h3>Create Backup</h3><p>Backup system data</p></div>
+            <div class="arena-feature-card" onclick="showBackupRestore()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(52,73,94,0.2); --badge-color:#8fa3b8;"><svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M5 14a8 8 0 0 1 14.3-4.5"/><path d="M19 10a8 8 0 0 1-14.3 4.5"/></svg></div><h3>Restore Data</h3><p>Import from backup</p></div>
+            <div class="arena-feature-card" onclick="showSystemSettings()"><div class="arena-feature-icon-badge" style="--badge-bg: rgba(241,196,15,0.15); --badge-color:#f1c40f;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div><h3>System Settings</h3><p>Configure system</p></div>
         </div>
     </div>
 
-    <!-- ADVANCED INCOME ANALYTICS -->
+    <!-- DUES & PAYMENTS -->
+    <div id="duesContainer">
+        <div class="arena-header">
+            <h2>💸 Dues & Payments</h2>
+            <button class="back-button-top" onclick="showDashboard()">← Back</button>
+        </div>
+
+        <div class="form-row" style="margin-bottom:20px;">
+            <div class="form-group" style="text-align:center; background:rgba(231,76,60,0.12); border:1px solid var(--error-color); border-radius:10px; padding:14px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Total Outstanding Due</div>
+                <div id="duesTotalOutstanding" style="font-size:22px; font-weight:bold; color:var(--error-color);">-</div>
+            </div>
+            <div class="form-group" style="text-align:center; background:rgba(46,204,113,0.12); border:1px solid var(--success-color); border-radius:10px; padding:14px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Total Collected</div>
+                <div id="duesTotalCollected" style="font-size:22px; font-weight:bold; color:var(--success-color);">-</div>
+            </div>
+            <div class="form-group" style="text-align:center; background:rgba(241,196,15,0.12); border:1px solid var(--highlight-yellow); border-radius:10px; padding:14px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Unpaid Bookings</div>
+                <div id="duesUnpaidCount" style="font-size:22px; font-weight:bold; color:var(--highlight-yellow);">-</div>
+            </div>
+            <div class="form-group" style="text-align:center; background:rgba(52,152,219,0.12); border:1px solid #3498db; border-radius:10px; padding:14px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Partially Paid</div>
+                <div id="duesPartialCount" style="font-size:22px; font-weight:bold; color:#3498db;">-</div>
+            </div>
+        </div>
+
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="form-group"><label>Search</label><input type="text" id="duesSearchInput" placeholder="Name, team, contact or booking ID" oninput="renderDues()"></div>
+            <div class="form-group"><label>Show</label>
+                <select id="duesStatusFilter" onchange="renderDues()">
+                    <option value="outstanding" selected>Outstanding Only (Unpaid + Partial)</option>
+                    <option value="unpaid">Unpaid Only</option>
+                    <option value="partial">Partial Only</option>
+                    <option value="paid">Fully Paid Only</option>
+                    <option value="waived">Waived Only</option>
+                    <option value="all">All Bookings</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto; margin-top:15px;">
+            <table class="income-table" id="duesTable" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Booking ID</th><th>Customer</th><th>Contact</th><th>Date & Time</th>
+                        <th>Total</th><th>Paid</th><th>Due</th><th>Status</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="duesTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
     <div id="incomeAnalyticsContainer">
         <div class="arena-header">
             <h2>💰 Professional Income Analytics</h2>
@@ -962,7 +1229,7 @@
         <div class="income-summary-cards" id="incomeSummaryCards"></div>
 
         <!-- Charts Section -->
-        <div class="charts-row" style="display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+        <div class="charts-row" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
             <div class="chart-container" style="flex: 2; min-width: 400px; height: 350px;">
                 <canvas id="revenueTrendChart"></canvas>
             </div>
@@ -971,11 +1238,21 @@
             </div>
         </div>
 
+        <!-- Deeper timing analytics: peak hours + best days of the week -->
+        <div class="charts-row" style="display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+            <div class="chart-container" style="flex: 1; min-width: 320px; height: 320px;">
+                <canvas id="hourlyPerformanceChart"></canvas>
+            </div>
+            <div class="chart-container" style="flex: 1; min-width: 320px; height: 320px;">
+                <canvas id="weekdayPerformanceChart"></canvas>
+            </div>
+        </div>
+
         <!-- Detailed Table -->
-        <h3 style="color: var(--highlight-yellow); border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Transaction Details (Paid Only)</h3>
+        <h3 style="color: var(--highlight-yellow); border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Transaction Details (All Bookings This Period)</h3>
         <div style="max-height: 300px; overflow-y: auto;">
             <table class="income-table">
-                <thead><tr><th>Date</th><th>Time</th><th>Team / Customer</th><th>Method</th><th>Partition</th><th>Amount</th></tr></thead>
+                <thead><tr><th>Date</th><th>Time</th><th>Team / Customer</th><th>Method</th><th>Partition</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th></tr></thead>
                 <tbody id="incomeTableBody"></tbody>
             </table>
         </div>
@@ -1009,11 +1286,88 @@
         </div>
     </div>
 
+    <!-- ARENA EXPENDITURE CONTAINER -->
+    <div id="expenditureContainer">
+        <div class="arena-header">
+            <h2>🧾 Arena Expenditure</h2>
+            <button class="back-button-top" onclick="showDashboard()">← Back</button>
+        </div>
+
+        <!-- Add Expense Form -->
+        <div class="settings-section" style="margin-bottom: 20px;">
+            <h3>➕ Add Expense</h3>
+            <div class="form-row">
+                <div class="form-group"><label>Date</label><input type="date" id="expenseDate"></div>
+                <div class="form-group"><label>Category</label>
+                    <select id="expenseCategory">
+                        <option value="Food">🍔 Food</option>
+                        <option value="Water">💧 Water</option>
+                        <option value="Electricity">💡 Electricity</option>
+                        <option value="Petrol/Fuel">⛽ Petrol / Fuel</option>
+                        <option value="Salaries">👷 Salaries</option>
+                        <option value="Maintenance">🔧 Maintenance</option>
+                        <option value="Rent">🏠 Rent</option>
+                        <option value="Equipment">🥅 Equipment</option>
+                        <option value="Other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Amount</label><input type="number" id="expenseAmount" placeholder="0"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:2;"><label>Description / Notes</label><input type="text" id="expenseDescription" placeholder="e.g. Grocery for staff, generator fuel..."></div>
+                <div class="form-group"><label>Paid Via</label>
+                    <select id="expensePaymentMethod">
+                        <option value="Cash">Cash</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="JazzCash">JazzCash</option>
+                        <option value="EasyPaisa">EasyPaisa</option>
+                        <option value="Card">Card</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-buttons">
+                <button onclick="addExpense()" style="background: linear-gradient(145deg, #2ecc71, #27ae60);">➕ Add Expense</button>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="income-controls">
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <label><input type="radio" name="expensePeriod" value="day" checked onchange="toggleExpenseDateInput()"> Daily View</label>
+                <label><input type="radio" name="expensePeriod" value="month" onchange="toggleExpenseDateInput()"> Monthly View</label>
+                <label><input type="radio" name="expensePeriod" value="year" onchange="toggleExpenseDateInput()"> Yearly View</label>
+            </div>
+            <div class="form-group" style="width: 200px;">
+                <input type="date" id="expenseDateInput" class="form-control">
+            </div>
+            <button onclick="renderExpenditure()" style="background: var(--success-color);">Analyze</button>
+            <button onclick="exportExpenseReport()" style="background: var(--accent-color);">📥 Export Report</button>
+        </div>
+
+        <!-- Summary Cards: Income vs Expenditure vs Profit -->
+        <div class="income-summary-cards" id="expenseSummaryCards"></div>
+
+        <!-- Category Breakdown -->
+        <h3 style="color: var(--highlight-yellow); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-top:10px;">Expense Breakdown by Category</h3>
+        <div id="expenseCategoryBreakdown" class="arena-management-grid" style="margin-top: 10px;"></div>
+
+        <!-- Detailed Table -->
+        <h3 style="color: var(--highlight-yellow); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-top:25px;">Expense Log (This Period)</h3>
+        <div style="max-height: 320px; overflow-y: auto;">
+            <table class="income-table">
+                <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Paid Via</th><th>Amount</th><th>Action</th></tr></thead>
+                <tbody id="expenseTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Settings Container -->
     <div id="settingsContainer">
         <div class="arena-header"><h2>System Settings</h2><button class="back-button-top" onclick="showDashboard()">← Back</button></div>
         <div class="settings-tabs" id="settingsTabs">
             <button class="settings-tab active" onclick="switchSettingsTab('appearance')">Appearance</button>
+            <button class="settings-tab" onclick="switchSettingsTab('businessInfo')">Business Info</button>
             <button class="settings-tab" onclick="switchSettingsTab('notifications')">Notifications</button>
             <button class="settings-tab" onclick="switchSettingsTab('financial')">Financial</button>
             <button class="settings-tab" onclick="switchSettingsTab('advanced')">Advanced</button>
@@ -1032,6 +1386,17 @@
                     </div>
 
                     <div class="form-group"><label>Theme Color</label><div class="theme-grid" id="themeGrid"></div></div>
+                </div>
+            </div>
+
+            <div class="settings-tab-content" id="businessInfoTab">
+                <div class="settings-section"><h3>📇 Business Contact Info (shown on booking receipts)</h3>
+                    <div class="form-group"><label>Address</label><input type="text" id="arenaAddressInput" placeholder="e.g. Main GT Road, Rawalpindi"></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Phone</label><input type="text" id="arenaPhoneInput" placeholder="e.g. +92 300 1234567"></div>
+                        <div class="form-group"><label>Email</label><input type="email" id="arenaEmailInput" placeholder="e.g. info@globalrusharena.com"></div>
+                    </div>
+                    <div class="form-group"><label>Website</label><input type="text" id="arenaWebsiteInput" placeholder="e.g. www.globalrusharena.com"></div>
                 </div>
             </div>
             
@@ -1062,6 +1427,30 @@
                 <div class="settings-section"><h3>Data & Security</h3>
                     <div class="form-group"><label>Auto Backup</label><select id="autoBackup"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
                 </div>
+                <div class="settings-section" style="margin-top:20px;">
+                    <h3>🔑 Change Admin Password</h3>
+                    <div class="form-group"><label>Current Password</label><input type="password" id="currentPasswordInput"></div>
+                    <div class="form-group"><label>New Password</label><input type="password" id="newPasswordInput" placeholder="At least 6 characters"></div>
+                    <div class="form-group"><label>Confirm New Password</label><input type="password" id="confirmNewPasswordInput"></div>
+                    <button onclick="changeAdminPassword()" style="background:var(--accent-color); margin-top:10px;">Update Password</button>
+                    <div id="changePasswordMsg" style="margin-top:10px; font-size:13px;"></div>
+                </div>
+                <div class="settings-section" style="margin-top:20px;" id="secondAdminForm">
+                    <h3>👥 Second Admin Account</h3>
+                    <p style="font-size:13px; color:var(--text-secondary);">Give the other owner their own CNIC and password to log in on their own phone.</p>
+                    <p id="secondAdminStatus" style="font-size:13px; color:var(--text-secondary); margin:8px 0;">Checking...</p>
+                    <div class="form-group"><label>Second Admin CNIC</label><input type="text" id="secondAdminCnic" placeholder="e.g. 3520112345671" inputmode="numeric"></div>
+                    <div class="form-group"><label>Second Admin Password</label><input type="password" id="secondAdminPassword" placeholder="At least 6 characters"></div>
+                    <div class="form-group"><label>Confirm Password</label><input type="password" id="secondAdminPasswordConfirm"></div>
+                    <button onclick="addSecondAdmin()" style="background:var(--accent-color); margin-top:6px;">Save Second Admin</button>
+                    <button id="removeSecondAdminBtn" onclick="removeSecondAdmin()" style="background:var(--error-color); margin-top:6px; display:none;">Remove Second Admin</button>
+                    <div id="secondAdminMsg" style="margin-top:10px; font-size:13px;"></div>
+                </div>
+                <div class="settings-section" style="margin-top:20px;">
+                    <h3>🚪 Log Out</h3>
+                    <p style="font-size:13px; color:var(--text-secondary);">Log out of this device. You'll need your CNIC and password to log back in.</p>
+                    <button onclick="logoutAdmin()" style="background:var(--error-color);">Log Out This Device</button>
+                </div>
             </div>
         </div>
         <div class="form-buttons"><button onclick="saveSettings()" style="background:var(--success-color);">💾 Save All Settings</button></div>
@@ -1079,16 +1468,23 @@
                 <button onclick="setHistoryPartition('day', this)">Day</button>
                 <button onclick="setHistoryPartition('night', this)">Night</button>
             </div>
+            <div class="partition-filter" id="historyPaymentFilterBar">
+                <button class="active" onclick="setHistoryPaymentFilter('all', this)">Any Payment</button>
+                <button onclick="setHistoryPaymentFilter('paid', this)">Paid</button>
+                <button onclick="setHistoryPaymentFilter('partial', this)">Partial</button>
+                <button onclick="setHistoryPaymentFilter('unpaid', this)">Unpaid</button>
+            </div>
             <input type="text" id="searchInput" onkeyup="filterHistory()" placeholder="Search...">
             <button onclick="printHistory()">Print</button>
         </div>
+        <div class="form-row" id="historySummaryBar" style="margin:14px 0;"></div>
         <div id="printableHistoryArea">
             <div class="print-only"><h1 id="printMainTitle">THE GLOBAL RUSH ARENA</h1><h2 id="printHistoryDate"></h2></div>
             <table id="bookingHistory">
                 <thead>
                     <tr>
                         <th>S.No</th><th>Booking ID</th><th>Name</th><th>Contact</th><th>Team</th><th>Address</th>
-                        <th>Booking Time</th><th>Amount</th><th>Method</th><th>Submitted</th><th>Verified</th><th>Actions</th>
+                        <th>Booking Time</th><th>Total</th><th>Paid</th><th>Due</th><th>Method</th><th>Submitted</th><th>Status</th><th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="bookingHistoryBody"></tbody>
@@ -1098,9 +1494,40 @@
 
     <!-- FOOTER -->
     <div class="arena-footer">
-        <span class="highlight">© 2025-2026 THE GLOBAL RUSH ARENA</span> · ALL RIGHTS RESERVED.
+        <span class="highlight">© 2025-2026 <span id="footerArenaName">THE GLOBAL RUSH ARENA</span></span> · ALL RIGHTS RESERVED.
         <span class="separator-dot">|</span> POWERED BY <span class="highlight">PAMMEER GROUP</span>
         <span class="data-widget-badge" id="footerSummaryWidget">📋 Today: 0 book | 💰 0 paid | ⏳ 0 unpaid</span>
+    </div>
+</div>
+
+<!-- Manage Payment Modal (Dues & Payments) -->
+<div id="duesPaymentModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0;">💸 Manage Payment</h2>
+            <button onclick="hideModal('duesPaymentModal')" style="background:rgba(255,255,255,0.1); padding:6px 12px; font-size:14px;">✖ Close</button>
+        </div>
+        <p id="duesModalCustomerInfo" style="color:var(--text-secondary); font-size:14px; margin-bottom:15px;"></p>
+
+        <div class="form-row">
+            <div class="form-group" style="text-align:center;"><label>Total</label><div id="duesModalTotal" style="font-size:18px; font-weight:bold;">-</div></div>
+            <div class="form-group" style="text-align:center;"><label>Paid</label><div id="duesModalPaid" style="font-size:18px; font-weight:bold; color:var(--success-color);">-</div></div>
+            <div class="form-group" style="text-align:center;"><label>Due</label><div id="duesModalDue" style="font-size:18px; font-weight:bold; color:var(--error-color);">-</div></div>
+        </div>
+
+        <div class="form-group"><label>Record a New Payment (adds to amount already paid)</label><input type="number" id="duesModalPaymentInput" placeholder="Amount received now"></div>
+        <button onclick="submitDuesPayment()" style="background:var(--success-color); width:100%; margin-bottom:12px;">✅ Record This Payment</button>
+
+        <div class="form-group"><label>Or Set The Exact Amount Paid So Far</label><input type="number" id="duesModalExactPaidInput" placeholder="e.g. total paid to date"></div>
+        <button onclick="submitDuesExactPaid()" style="background:var(--accent-color); width:100%; margin-bottom:12px;">✏️ Set Exact Amount</button>
+
+        <div class="form-group"><label>Note (optional)</label><input type="text" id="duesModalNoteInput" placeholder="e.g. Paid via JazzCash on 5 July"></div>
+
+        <div style="display:flex; gap:10px; margin-top:6px;">
+            <button onclick="markDueFullyPaidFromModal()" style="background:var(--success-color); flex:1;">Mark Fully Paid</button>
+            <button onclick="waiveDueFromModal()" style="background:rgba(255,255,255,0.15); flex:1;">Waive Remaining Due</button>
+        </div>
+        <div id="duesModalMsg" style="margin-top:12px; font-size:13px;"></div>
     </div>
 </div>
 
@@ -1156,7 +1583,44 @@
 </div>
 
 <!-- Receipt Modal -->
-<div id="receiptModal"><div class="receipt-modal-content"><div id="receiptIcon" class="receipt-icon"></div><h2 id="receiptTitle"></h2><div id="receiptContent"><img id="receiptLogoImg" style="display:none; max-height:70px; border-radius:50%; margin:0 auto 8px auto; display:block;" src="" alt="Arena Logo"><h3 id="receiptArenaName">THE GLOBAL RUSH ARENA</h3><h4>Official Booking Receipt</h4><p><strong>Booking ID:</strong> <span id="receiptBookingId"></span></p><p><strong>Name & Team:</strong> <span id="receiptNameAndTeam"></span></p><p><strong>Contact:</strong> <span id="receiptContact"></span></p><p><strong>Booking Slot:</strong> <span id="receiptBookingTime"></span></p><p><strong>Partition:</strong> <span id="receiptTimePartition"></span></p><p><strong>Duration:</strong> <span id="receiptDuration"></span></p><p><strong>Amount:</strong> <span id="receiptAmount"></span></p><p><strong>Payment Method:</strong> <span id="receiptPaymentMethod"></span></p><p><strong>Payment Status:</strong> <span id="receiptPaymentStatus"></span></p><p><strong>Booked On:</strong> <span id="receiptSubmissionDate"></span></p></div><div class="receipt-buttons"><button onclick="printReceipt()">🖨️ Print</button><button onclick="saveReceipt()">💾 Save Image</button><button onclick="shareReceiptWhatsApp()" style="background:#25D366;">📱 WhatsApp</button><button onclick="copyReceiptText()" style="background:rgba(255,255,255,0.15);">📋 Copy</button><button onclick="hideReceiptModal()">✖ Close</button></div></div></div>
+<div id="receiptModal"><div class="receipt-modal-content"><div id="receiptIcon" class="receipt-icon"></div><h2 id="receiptTitle"></h2><div id="receiptContent">
+    <div class="receipt-doc-header">
+        <img id="receiptLogoImg" style="display:none; max-height:44px; border-radius:50%; margin:0 auto 6px auto;" src="" alt="Arena Logo">
+        <h3 id="receiptArenaName">THE GLOBAL RUSH ARENA</h3>
+        <div class="receipt-contact-line" id="receiptArenaContact"></div>
+    </div>
+    <div class="receipt-body">
+    <div class="receipt-top-row">
+        <div class="receipt-bookedby">
+            <span class="receipt-label">Booked By</span>
+            <div class="receipt-name" id="receiptNameAndTeam"></div>
+            <div class="receipt-contact-val" id="receiptContact"></div>
+        </div>
+        <div class="receipt-doc-title">
+            <div class="receipt-receipt-word">RECEIPT</div>
+            <div>Receipt #: <strong id="receiptBookingId"></strong></div>
+            <div>Date: <strong id="receiptSubmissionDate"></strong></div>
+        </div>
+    </div>
+    <div class="receipt-details-grid">
+        <div><span class="receipt-label">Booking Slot</span><span id="receiptBookingTime"></span></div>
+        <div><span class="receipt-label">Partition</span><span id="receiptTimePartition"></span></div>
+        <div><span class="receipt-label">Duration</span><span id="receiptDuration"></span></div>
+        <div><span class="receipt-label">Payment Method</span><span id="receiptPaymentMethod"></span></div>
+        <div><span class="receipt-label">Payment Status</span><span id="receiptPaymentStatus"></span></div>
+    </div>
+    <table class="receipt-items-table">
+        <thead><tr><th>Hour</th><th>Time Slot</th><th>Amount</th></tr></thead>
+        <tbody id="receiptItemsBody"></tbody>
+        <tfoot>
+            <tr><td colspan="2">Subtotal</td><td id="receiptSubtotalAmt"></td></tr>
+            <tr><td colspan="2">Amount Paid</td><td id="receiptPaidAmt"></td></tr>
+            <tr class="receipt-total-row"><td colspan="2">Balance Due</td><td id="receiptDueAmt"></td></tr>
+        </tfoot>
+    </table>
+    <div class="receipt-notes">Thank you for booking with us — see you on the pitch! ⚽</div>
+    </div>
+</div><div class="receipt-buttons"><button onclick="printReceipt()" title="Print"><span class="rb-icon">🖨️</span>Print</button><button onclick="saveReceipt()" title="Save Image"><span class="rb-icon">💾</span>Save</button><button class="rb-whatsapp" onclick="shareReceiptWhatsApp()" title="Share on WhatsApp"><span class="rb-icon">📱</span>WhatsApp</button><button onclick="copyReceiptText()" title="Copy"><span class="rb-icon">📋</span>Copy</button><button class="rb-close" onclick="hideReceiptModal()" title="Close"><span class="rb-icon">✖</span>Close</button></div></div></div>
 
 <!-- Notifications Modal -->
 <div id="notificationsModal" class="modal-overlay">
@@ -1187,20 +1651,316 @@
         messagingSenderId: "182269079543",
         appId: "1:182269079543:web:d87544db16ca46b7b448f2"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    // Wrapped in try/catch: on some mobile connections the Firebase SDK can
+    // load slowly or get blocked, and without this guard that single failure
+    // used to silently kill the entire script - leaving the login screen
+    // stuck showing just the title, with no form and no error message.
+    let firebaseInitError = null;
+    let db = null;
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+    } catch (err) {
+        console.error('Firebase failed to initialize:', err);
+        firebaseInitError = err;
+    }
     // Every booking lives as its own document, so two phones writing at the
     // same time never overwrite each other's booking - they just add/update
     // their own document side by side.
-    const bookingsRef = db.collection('bookings');
+    const bookingsRef = db ? db.collection('bookings') : null;
+    // Arena running costs (food, water, petrol, salaries, maintenance, etc.)
+    // live in their own collection the same way, so both owner phones see
+    // the same expense log in real time.
+    const expensesRef = db ? db.collection('expenses') : null;
+    const settingsRef = db ? db.collection('arenaConfig').doc('settings') : null;
     let cloudReady = false;
+
+    // ==================== TIME FORMATTING (12-hour, used everywhere in the app) ====================
+    // Turns "14:00" into "2:00 PM"
+    function formatTime12(hhmm) {
+        if (!hhmm) return '';
+        const parts = hhmm.split(':');
+        let h = parseInt(parts[0], 10);
+        const m = parts[1] || '00';
+        if (isNaN(h)) return hhmm;
+        const ap = h < 12 ? 'AM' : 'PM';
+        let h12 = h % 12; if (h12 === 0) h12 = 12;
+        return `${h12}:${m} ${ap}`;
+    }
+    // Turns a full date/time (ISO string or Date) into "Jul 4, 2026, 2:00 PM"
+    function formatDateTime12(input) {
+        if (!input) return '';
+        const d = (input instanceof Date) ? input : new Date(input);
+        if (isNaN(d.getTime())) return String(input);
+        return d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', hour12: true });
+    }
+
+    // ==================== ADMIN LOGIN (credentials live in Firestore, never in this file) ====================
+    // Schema in Firestore: adminConfig/credentials = { admins: [ {id, label, cnicHash, passwordHash}, ... ] }
+    // Up to 2 admins are supported (e.g. two owners), each with their own CNIC + password.
+    const credentialsRef = db ? db.collection('adminConfig').doc('credentials') : null;
+    const LOGIN_SESSION_KEY = 'gra_loggedIn';
+    const LOGIN_ADMIN_ID_KEY = 'gra_loggedInAdminId';
+
+    // Turns any text into a scrambled, one-way "hash" - the original text can't be recovered from it.
+    async function sha256Hex(text) {
+        const data = new TextEncoder().encode(text);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function showLoginError(msg) {
+        document.getElementById('loginError').textContent = msg || '';
+    }
+
+    function setLoginBusy(isBusy) {
+        document.getElementById('loginLoading').style.display = isBusy ? 'block' : 'none';
+    }
+
+    // Reads the admins list from Firestore, supporting the old single-admin
+    // shape too (in case this loads before anyone has upgraded to 2 admins).
+    function getAdminsFromDoc(data) {
+        if (!data) return [];
+        if (Array.isArray(data.admins)) return data.admins;
+        if (data.cnicHash && data.passwordHash) {
+            return [{ id: 'admin1', label: 'Admin 1', cnicHash: data.cnicHash, passwordHash: data.passwordHash }];
+        }
+        return [];
+    }
+
+    // Runs once when the page loads: decides whether to show the lock screen,
+    // the first-time "create an account" screen, or skip straight into the app
+    // (if this device already remembers a valid login).
+    async function checkLoginStatus() {
+        if (localStorage.getItem(LOGIN_SESSION_KEY) === 'true') {
+            unlockApp();
+            return;
+        }
+        if (firebaseInitError || !db || !credentialsRef) {
+            showLoginError('Could not connect to the database. Please check your internet connection and tap Retry.');
+            document.getElementById('loginRetryBtn').style.display = 'inline-block';
+            return;
+        }
+        setLoginBusy(true);
+        document.getElementById('loginRetryBtn').style.display = 'none';
+        try {
+            // A 12-second safety timeout, so a slow or blocked mobile
+            // connection shows a clear message instead of spinning forever.
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000));
+            const doc = await Promise.race([credentialsRef.get(), timeout]);
+            setLoginBusy(false);
+            const admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
+            if (admins.length > 0) {
+                document.getElementById('setupFormFields').style.display = 'none';
+                document.getElementById('loginFormFields').style.display = 'block';
+            } else {
+                document.getElementById('loginFormFields').style.display = 'none';
+                document.getElementById('setupFormFields').style.display = 'block';
+            }
+        } catch (err) {
+            setLoginBusy(false);
+            showLoginError('Could not reach the database. Check your internet connection and tap Retry.');
+            document.getElementById('loginRetryBtn').style.display = 'inline-block';
+        }
+    }
+
+    // First-time setup: creates the first admin account for this arena.
+    async function handleSetup() {
+        if (!credentialsRef) { showLoginError('Not connected to the database. Please check your internet and tap Retry.'); return; }
+        const cnic = document.getElementById('setupCnic').value.trim();
+        const pass = document.getElementById('setupPassword').value;
+        const confirm = document.getElementById('setupPasswordConfirm').value;
+        showLoginError('');
+
+        if (!cnic || !pass) { showLoginError('Please fill in all fields.'); return; }
+        if (pass.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
+        if (pass !== confirm) { showLoginError('Passwords do not match.'); return; }
+
+        setLoginBusy(true);
+        try {
+            const cnicHash = await sha256Hex(cnic);
+            const passwordHash = await sha256Hex(pass);
+            const admins = [{ id: 'admin1', label: 'Admin 1', cnicHash, passwordHash }];
+            await credentialsRef.set({ admins, updatedAt: new Date().toISOString() });
+            localStorage.setItem(LOGIN_SESSION_KEY, 'true');
+            localStorage.setItem(LOGIN_ADMIN_ID_KEY, 'admin1');
+            setLoginBusy(false);
+            unlockApp();
+        } catch (err) {
+            setLoginBusy(false);
+            showLoginError('Could not create the account. Please try again.');
+        }
+    }
+
+    // Normal login: checks what was typed against either admin's stored hashes.
+    async function handleLogin() {
+        if (!credentialsRef) { showLoginError('Not connected to the database. Please check your internet and tap Retry.'); return; }
+        const cnic = document.getElementById('loginCnic').value.trim();
+        const pass = document.getElementById('loginPassword').value;
+        const remember = document.getElementById('rememberDevice').checked;
+        showLoginError('');
+
+        if (!cnic || !pass) { showLoginError('Please fill in all fields.'); return; }
+
+        setLoginBusy(true);
+        try {
+            const doc = await credentialsRef.get();
+            const admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
+            if (admins.length === 0) { setLoginBusy(false); showLoginError('No admin account found. Please refresh the page.'); return; }
+            const cnicHash = await sha256Hex(cnic);
+            const passwordHash = await sha256Hex(pass);
+            setLoginBusy(false);
+
+            const match = admins.find(a => a.cnicHash === cnicHash && a.passwordHash === passwordHash);
+            if (match) {
+                if (remember) localStorage.setItem(LOGIN_SESSION_KEY, 'true');
+                localStorage.setItem(LOGIN_ADMIN_ID_KEY, match.id);
+                unlockApp();
+            } else {
+                showLoginError('Incorrect CNIC or password.');
+            }
+        } catch (err) {
+            setLoginBusy(false);
+            showLoginError('Could not reach the database. Check your internet connection and try again.');
+        }
+    }
+
+    // Hides the lock screen, reveals the app, and runs the normal startup code.
+    function unlockApp() {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.querySelector('.container').style.display = 'flex';
+        initAppAfterLogin();
+    }
+
+    // Logs this device out - it will ask for CNIC + password again next time.
+    function logoutAdmin() {
+        localStorage.removeItem(LOGIN_SESSION_KEY);
+        localStorage.removeItem(LOGIN_ADMIN_ID_KEY);
+        location.reload();
+    }
+
+    // Lets the logged-in admin change their own password from Settings > Security.
+    async function changeAdminPassword() {
+        const current = document.getElementById('currentPasswordInput').value;
+        const next = document.getElementById('newPasswordInput').value;
+        const confirmNext = document.getElementById('confirmNewPasswordInput').value;
+        const msgEl = document.getElementById('changePasswordMsg');
+        msgEl.style.color = 'var(--error-color)';
+
+        if (!current || !next) { msgEl.textContent = 'Please fill in all fields.'; return; }
+        if (next.length < 6) { msgEl.textContent = 'New password must be at least 6 characters.'; return; }
+        if (next !== confirmNext) { msgEl.textContent = 'New passwords do not match.'; return; }
+
+        msgEl.style.color = 'var(--text-secondary)';
+        msgEl.textContent = 'Checking...';
+        try {
+            const doc = await credentialsRef.get();
+            const admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
+            if (admins.length === 0) { msgEl.style.color = 'var(--error-color)'; msgEl.textContent = 'No admin account found.'; return; }
+
+            const myId = localStorage.getItem(LOGIN_ADMIN_ID_KEY) || 'admin1';
+            const idx = admins.findIndex(a => a.id === myId);
+            const targetIdx = idx !== -1 ? idx : 0;
+
+            const currentHash = await sha256Hex(current);
+            if (currentHash !== admins[targetIdx].passwordHash) {
+                msgEl.style.color = 'var(--error-color)';
+                msgEl.textContent = 'Current password is incorrect.';
+                return;
+            }
+            admins[targetIdx].passwordHash = await sha256Hex(next);
+            await credentialsRef.update({ admins, updatedAt: new Date().toISOString() });
+            msgEl.style.color = 'var(--success-color)';
+            msgEl.textContent = 'Password updated successfully.';
+            document.getElementById('currentPasswordInput').value = '';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('confirmNewPasswordInput').value = '';
+        } catch (err) {
+            msgEl.style.color = 'var(--error-color)';
+            msgEl.textContent = 'Could not update password. Please try again.';
+        }
+    }
+
+    // Adds (or replaces) the second owner's own CNIC + password account.
+    async function addSecondAdmin() {
+        const cnic = document.getElementById('secondAdminCnic').value.trim();
+        const pass = document.getElementById('secondAdminPassword').value;
+        const confirmPass = document.getElementById('secondAdminPasswordConfirm').value;
+        const msgEl = document.getElementById('secondAdminMsg');
+        msgEl.style.color = 'var(--error-color)';
+
+        if (!cnic || !pass) { msgEl.textContent = 'Please fill in all fields.'; return; }
+        if (pass.length < 6) { msgEl.textContent = 'Password must be at least 6 characters.'; return; }
+        if (pass !== confirmPass) { msgEl.textContent = 'Passwords do not match.'; return; }
+
+        msgEl.style.color = 'var(--text-secondary)';
+        msgEl.textContent = 'Saving...';
+        try {
+            const doc = await credentialsRef.get();
+            let admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
+            const cnicHash = await sha256Hex(cnic);
+            const passwordHash = await sha256Hex(pass);
+            const newEntry = { id: 'admin2', label: 'Admin 2', cnicHash, passwordHash };
+            admins = admins.filter(a => a.id !== 'admin2');
+            admins.push(newEntry);
+            await credentialsRef.update({ admins, updatedAt: new Date().toISOString() });
+            msgEl.style.color = 'var(--success-color)';
+            msgEl.textContent = 'Second admin account saved. They can now log in on their own phone.';
+            document.getElementById('secondAdminCnic').value = '';
+            document.getElementById('secondAdminPassword').value = '';
+            document.getElementById('secondAdminPasswordConfirm').value = '';
+            refreshSecondAdminStatus();
+        } catch (err) {
+            msgEl.style.color = 'var(--error-color)';
+            msgEl.textContent = 'Could not save the second admin account. Please try again.';
+        }
+    }
+
+    // Removes the second admin's account (they'll no longer be able to log in).
+    async function removeSecondAdmin() {
+        if (!confirm('Remove the second admin account? That person will no longer be able to log in.')) return;
+        try {
+            const doc = await credentialsRef.get();
+            let admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
+            admins = admins.filter(a => a.id !== 'admin2');
+            await credentialsRef.update({ admins, updatedAt: new Date().toISOString() });
+            addNotification('Second admin account removed', 'info');
+            refreshSecondAdminStatus();
+        } catch (err) {
+            addNotification('Could not remove the second admin account', 'error');
+        }
+    }
+
+    // Shows whether a second admin already exists in the Security tab.
+    async function refreshSecondAdminStatus() {
+        const statusEl = document.getElementById('secondAdminStatus');
+        const formEl = document.getElementById('secondAdminForm');
+        const removeBtn = document.getElementById('removeSecondAdminBtn');
+        if (!statusEl) return;
+        try {
+            const doc = await credentialsRef.get();
+            const admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
+            const hasSecond = admins.some(a => a.id === 'admin2');
+            statusEl.textContent = hasSecond ? '✅ A second admin account is already set up.' : 'No second admin account yet.';
+            statusEl.style.color = hasSecond ? 'var(--success-color)' : 'var(--text-secondary)';
+            removeBtn.style.display = hasSecond ? 'inline-block' : 'none';
+        } catch (err) {
+            statusEl.textContent = 'Could not check second admin status.';
+        }
+    }
 
     // ==================== GLOBAL ====================
     let bookings = [];
+    let expenses = [];
     let notifications = [];
+    let lastBookingContext = null; // holds customer + rate info so we can offer the next consecutive slot
     let activeTab = null;
     let settings = {
         arenaName: "THE GLOBAL RUSH ARENA",
+        arenaAddress: "",
+        arenaPhone: "",
+        arenaEmail: "",
+        arenaWebsite: "",
         theme: 'default',
         currency: 'PKR',
         taxRate: 0,
@@ -1211,16 +1971,27 @@
     };
     let calendarCurrentDate = new Date();
     let historyPartitionFilter = 'all';
+    let historyPaymentFilter = 'all';
 
     // Chart Instances
     let revenueChartInstance = null;
     let methodChartInstance = null;
+    let hourlyChartInstance = null;
+    let weekdayChartInstance = null;
 
     // ==================== INIT ====================
+    // The app no longer starts automatically. First we check the lock screen;
+    // the real startup code (below) only runs after a successful login.
     document.addEventListener('DOMContentLoaded', () => {
+        checkLoginStatus();
+    });
+
+    function initAppAfterLogin() {
         populateHourDropdown();
         loadAllData();
         listenForBookings();
+        listenForExpenses();
+        listenForArenaSettings();
         updateClock();
         setInterval(updateClock, 1000);
         updateScheduleTitle();
@@ -1236,7 +2007,7 @@
         
         document.getElementById('incomeDateInput').value = new Date().toISOString().split('T')[0];
         addNotification('System ready', 'info');
-    });
+    }
 
     // ========== NAVIGATION & BACK BUTTONS FIX ==========
     function hideAllSections() {
@@ -1247,7 +2018,9 @@
             'settingsContainer', 
             'calendarViewContainer', 
             'incomeAnalyticsContainer', 
-            'customerCRMContainer'
+            'customerCRMContainer',
+            'duesContainer',
+            'expenditureContainer'
         ];
         
         // Hide Functional Sections
@@ -1264,6 +2037,10 @@
 
         document.querySelectorAll('.active-tab').forEach(t => t.classList.remove('active-tab'));
         document.body.classList.remove('blur-active');
+        // Professional focus mode: settings gear + notification bell stay
+        // tucked away while any tab is open, and only reappear once we're
+        // back on the main dashboard (see showDashboard()).
+        document.querySelector('.top-controls-right').classList.add('controls-hidden');
         activeTab = null;
     }
 
@@ -1276,7 +2053,9 @@
             'settingsContainer', 
             'calendarViewContainer', 
             'incomeAnalyticsContainer', 
-            'customerCRMContainer'
+            'customerCRMContainer',
+            'duesContainer',
+            'expenditureContainer'
         ];
         sections.forEach(id => {
             const el = document.getElementById(id);
@@ -1291,6 +2070,7 @@
         
         activeTab = null; 
         document.body.classList.remove('blur-active'); 
+        document.querySelector('.top-controls-right').classList.remove('controls-hidden');
         updateFooterWidget();
     }
 
@@ -1307,6 +2087,7 @@
         document.getElementById('arenaTitle').textContent = name;
         document.getElementById('printMainTitle').textContent = name;
         document.getElementById('receiptArenaName').textContent = name;
+        document.getElementById('footerArenaName').textContent = name;
         document.title = name + " - Professional System";
         
         // Update Input Field
@@ -1330,17 +2111,52 @@
     }
 
     function uploadLogoSave() {
-        const file = document.getElementById('logoUpload').files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const logoData = e.target.result;
-                localStorage.setItem('arenaSavedLogo', logoData);
+        const fileInput = document.getElementById('logoUpload');
+        const file = fileInput.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { addNotification('Please choose an image file', 'error'); return; }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                // Shrink the logo so it stays small enough to store reliably
+                // and sync instantly to the other phone.
+                const maxDim = 300;
+                let w = img.width, h = img.height;
+                if (w > maxDim || h > maxDim) {
+                    if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                    else { w = Math.round(w * maxDim / h); h = maxDim; }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                const logoData = canvas.toDataURL('image/png', 0.85);
+
+                try { localStorage.setItem('arenaSavedLogo', logoData); } catch (err) { console.warn('Could not cache logo locally', err); }
                 applyLogo(logoData);
-                addNotification('Logo updated successfully', 'success');
+
+                settingsRef.set({ logo: logoData, updatedAt: new Date().toISOString() }, { merge: true })
+                    .then(() => addNotification('Logo updated and synced to both devices', 'success'))
+                    .catch(err => { console.error(err); addNotification('Logo saved on this device, but could not sync to the cloud - check internet', 'error'); });
             };
-            reader.readAsDataURL(file);
-        }
+            img.onerror = function() { addNotification('Could not read that image file', 'error'); };
+            img.src = e.target.result;
+        };
+        reader.onerror = function() { addNotification('Could not read that image file', 'error'); };
+        reader.readAsDataURL(file);
+    }
+
+    // Keeps the logo identical on both phones - whichever one uploads it, the
+    // other picks it up automatically the moment it changes.
+    function listenForArenaSettings() {
+        settingsRef.onSnapshot(doc => {
+            if (doc.exists && doc.data().logo) {
+                const cloudLogo = doc.data().logo;
+                applyLogo(cloudLogo);
+                try { localStorage.setItem('arenaSavedLogo', cloudLogo); } catch (err) {}
+            }
+        }, err => console.error('Logo sync error:', err));
     }
 
     function applyLogo(src) {
@@ -1363,15 +2179,23 @@
             // Financials
             document.getElementById('currencySelect').value = settings.currency || 'PKR';
             document.getElementById('taxRate').value = settings.taxRate || 0;
+
+            // Business contact info (shown on receipts)
+            document.getElementById('arenaAddressInput').value = settings.arenaAddress || '';
+            document.getElementById('arenaPhoneInput').value = settings.arenaPhone || '';
+            document.getElementById('arenaEmailInput').value = settings.arenaEmail || '';
+            document.getElementById('arenaWebsiteInput').value = settings.arenaWebsite || '';
             
             if (settings.theme) applyTheme(settings.theme);
         } else {
             updateArenaName("THE GLOBAL RUSH ARENA");
         }
         
-        // Load Logo
+        // Load Logo - show the cached copy instantly, then let the live
+        // listener (listenForArenaSettings) refresh it from the cloud.
         const savedLogo = localStorage.getItem('arenaSavedLogo');
-        if(savedLogo) applyLogo(savedLogo);
+        if (savedLogo) applyLogo(savedLogo);
+        refreshSecondAdminStatus();
     }
 
     function saveSettings() {
@@ -1380,6 +2204,11 @@
         
         settings.currency = document.getElementById('currencySelect').value;
         settings.taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+
+        settings.arenaAddress = document.getElementById('arenaAddressInput').value.trim();
+        settings.arenaPhone = document.getElementById('arenaPhoneInput').value.trim();
+        settings.arenaEmail = document.getElementById('arenaEmailInput').value.trim();
+        settings.arenaWebsite = document.getElementById('arenaWebsiteInput').value.trim();
         
         settings.notifications = {
             bookings: document.getElementById('notifyBookings').checked,
@@ -1504,18 +2333,41 @@
     function submitBooking() {
         if (!validateForm()) return;
         const bookingDate = document.getElementById('bookingDate').value;
-        const bookingHour = document.getElementById('bookingHour').value;
-        const bookingTime = `${bookingDate}T${bookingHour}`;
         const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
-        
-        // Check all slots covered by the duration for conflicts
-        let conflictSlot = null;
-        for (let d = 0; d < duration; d++) {
-            const checkDate = new Date(bookingDate + 'T' + bookingHour);
-            checkDate.setHours(checkDate.getHours() + d);
-            const checkSlot = checkDate.toISOString().slice(0,10) + 'T' + String(checkDate.getHours()).padStart(2,'0') + ':00';
-            if (bookings.some(b => b.bookingTime === checkSlot)) { conflictSlot = checkSlot; break; }
+
+        // Gather the exact hour(s) chosen for this booking. For 2+ hour
+        // bookings, each row in the breakdown box picks its own hour
+        // (possibly non-consecutive); for a 1-hour booking it's just the
+        // main Booking Time Slot field.
+        let hourAmountPairs;
+        if (duration >= 2) {
+            hourAmountPairs = Array.from(document.querySelectorAll('#hourlyBreakdownList [data-row]')).map(row => ({
+                hour: row.querySelector('select').value,
+                amount: parseFloat(row.querySelector('input').value) || 0
+            }));
+            if (hourAmountPairs.some(p => !p.hour)) {
+                addNotification('Please choose a time slot for every hour row', 'error');
+                return;
+            }
+            const seen = new Set();
+            const dupe = hourAmountPairs.find(p => { if (seen.has(p.hour)) return true; seen.add(p.hour); return false; });
+            if (dupe) {
+                addNotification('Each hour must be a different time slot - duplicate at ' + formatTime12(dupe.hour), 'error');
+                return;
+            }
+        } else {
+            hourAmountPairs = [{ hour: document.getElementById('bookingHour').value, amount: parseFloat(document.getElementById('bookingAmount').value) || 0 }];
         }
+        hourAmountPairs.sort((a, b) => a.hour.localeCompare(b.hour));
+        const hours = hourAmountPairs.map(p => p.hour);
+        const hourAmounts = hourAmountPairs.map(p => p.amount);
+        const bookingHour = hours[0];
+        const bookingTime = `${bookingDate}T${bookingHour}`;
+
+        // Check every chosen hour for conflicts against existing bookings.
+        const occupiedForCheck = getOccupiedHoursForDate(bookingDate);
+        const conflictHour = hours.find(h => occupiedForCheck.has(h));
+        const conflictSlot = conflictHour ? `${bookingDate}T${conflictHour}` : null;
         if (conflictSlot) {
             // Fix: show visible inline alert, not just notification
             const existingAlert = document.getElementById('bookingConflictAlert');
@@ -1523,7 +2375,7 @@
             const alertEl = document.createElement('div');
             alertEl.id = 'bookingConflictAlert';
             alertEl.style.cssText = 'background:rgba(231,76,60,0.2); border:1px solid var(--error-color); border-radius:8px; padding:12px 16px; margin-bottom:15px; color:var(--error-color); font-weight:bold; text-align:center;';
-            alertEl.textContent = '⚠️ Slot conflict! A booking already exists at ' + new Date(conflictSlot).toLocaleString() + '. Please choose a different time.';
+            alertEl.textContent = '⚠️ Slot conflict! A booking already exists at ' + formatDateTime12(conflictSlot) + '. Please choose a different time.';
             document.getElementById('bookingForm').querySelector('.form-buttons').before(alertEl);
             addNotification('Slot already booked — conflict at ' + conflictSlot, 'error');
             return;
@@ -1533,6 +2385,16 @@
         if (existingAlert) existingAlert.remove();
 
         let amount = parseFloat(document.getElementById('bookingAmount').value) || 0;
+
+        // Work out how much has actually been paid right now. If the admin
+        // leaves "Amount Paid" blank, we sensibly default it from the
+        // Payment Verified dropdown (Yes = paid in full, No = nothing yet).
+        const paidRaw = document.getElementById('amountPaid').value;
+        const verifiedSelection = document.getElementById('paymentVerified').value === 'Yes';
+        let amountPaid = paidRaw === '' ? (verifiedSelection ? amount : 0) : (parseFloat(paidRaw) || 0);
+        if (amountPaid < 0) amountPaid = 0;
+        if (amountPaid > amount) amountPaid = amount;
+        const amountDue = Math.max(0, amount - amountPaid);
 
         // Fix: generate truly unique booking ID
         let newId;
@@ -1546,11 +2408,15 @@
             teamName: document.getElementById('teamName').value,
             address: document.getElementById('address').value,
             bookingTime,
-            duration: duration,
+            duration: hours.length,
+            hours: hours,
+            hourAmounts: hourAmounts,
             bookingAmount: amount,
+            amountPaid: amountPaid,
+            amountDue: amountDue,
             paymentMethod: document.getElementById('paymentMethod').value,
             submissionDateTime: new Date().toISOString(),
-            verified: document.getElementById('paymentVerified').value === 'Yes'
+            verified: amountDue <= 0 && amount > 0
         };
         bookings.push(newBooking);
         // Write straight to this booking's own cloud document. Firestore
@@ -1563,6 +2429,22 @@
         addNotification(`Booking created for ${newBooking.fullName}`, 'success');
         showReceiptModal(newBooking);
         updateFooterWidget();
+
+        // Remember who we just booked and at what hourly rate, then offer to
+        // book the very next hour(s) for the same customer without making
+        // the admin retype all the details again.
+        const lastHour = parseInt(hours[hours.length - 1].split(':')[0], 10);
+        lastBookingContext = {
+            fullName: newBooking.fullName,
+            contactNumber: newBooking.contactNumber,
+            teamName: newBooking.teamName,
+            address: newBooking.address,
+            paymentMethod: newBooking.paymentMethod,
+            bookingDate,
+            nextStartHour: lastHour + 1,
+            perHourRate: hours.length > 0 ? amount / hours.length : amount
+        };
+        showNextSlotPanel();
     }
 
     function validateForm() {
@@ -1581,11 +2463,34 @@
         return valid;
     }
 
+    // Returns a Set of 'HH:00' hour-slot strings already occupied on a given
+    // date. Supports both new bookings that store an explicit `hours` array
+    // (needed since hours booked together no longer have to be consecutive)
+    // and older bookings that only have bookingTime + duration (assumed
+    // to be a consecutive block starting at bookingTime).
+    function getOccupiedHoursForDate(dateStr, excludeBookingId) {
+        const occupied = new Set();
+        bookings.forEach(b => {
+            if (!b.bookingTime || !b.bookingTime.startsWith(dateStr)) return;
+            if (excludeBookingId && b.bookingId === excludeBookingId) return;
+            if (Array.isArray(b.hours) && b.hours.length) {
+                b.hours.forEach(h => occupied.add(h));
+            } else {
+                const startHour = parseInt(b.bookingTime.split('T')[1].split(':')[0], 10);
+                const dur = b.duration || 1;
+                for (let d = 0; d < dur; d++) {
+                    occupied.add(String((startHour + d) % 24).padStart(2, '0') + ':00');
+                }
+            }
+        });
+        return occupied;
+    }
+
     function updateBookingSlots() {
         let date = document.getElementById('bookingDate').value;
         let partition = document.getElementById('timePartition').value;
         let hourSelect = document.getElementById('bookingHour');
-        let bookedOnDate = date ? bookings.filter(b=>b.bookingTime && b.bookingTime.startsWith(date)) : [];
+        let occupied = date ? getOccupiedHoursForDate(date) : new Set();
         
         for (let opt of hourSelect.options) {
             if (opt.value) {
@@ -1596,7 +2501,7 @@
                 if (partition==='night' && (hour>=6 && hour<18)) visible = false;
                 opt.style.display = visible ? 'block' : 'none';
                 if (visible) {
-                    let isBooked = bookedOnDate.some(b=>b.bookingTime && b.bookingTime.endsWith(opt.value));
+                    let isBooked = occupied.has(opt.value);
                     opt.textContent = opt.dataset.baseText;
                     opt.style.color = ''; 
                     opt.disabled = false;
@@ -1613,6 +2518,118 @@
         }
     }
 
+    // ==================== CONTINUE BOOKING: NEXT CONSECUTIVE SLOT ====================
+    // After a booking is submitted, offer to book the very next hour(s) for
+    // the same customer - e.g. they booked 2 hours starting 2 PM, so this
+    // offers a slot starting 4 PM without retyping their details.
+    function showNextSlotPanel() {
+        const panel = document.getElementById('nextSlotPanel');
+        if (!lastBookingContext || lastBookingContext.nextStartHour >= 24) {
+            panel.style.display = 'none';
+            return;
+        }
+        const { bookingDate, nextStartHour, perHourRate } = lastBookingContext;
+        const hourSelect = document.getElementById('nextSlotHour');
+        hourSelect.innerHTML = '';
+        const occupied = getOccupiedHoursForDate(bookingDate);
+        let anyAvailable = false;
+
+        for (let h = nextStartHour; h < 24; h++) {
+            const val = String(h).padStart(2,'0') + ':00';
+            const isBooked = occupied.has(val);
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = `${h%12||12} ${h<12?'AM':'PM'} - ${(h+1)%12||12} ${(h+1)<12?'AM':'PM'}` + (isBooked ? ' (Booked)' : ' (Available)');
+            opt.disabled = isBooked;
+            opt.style.color = isBooked ? '#e74c3c' : '#2ecc71';
+            hourSelect.appendChild(opt);
+            if (!isBooked) anyAvailable = true;
+        }
+        const firstAvailable = Array.from(hourSelect.options).find(o => !o.disabled);
+        if (firstAvailable) hourSelect.value = firstAvailable.value;
+
+        document.getElementById('nextSlotDuration').value = '1';
+        document.getElementById('nextSlotVerified').value = 'No';
+        updateNextSlotAmount();
+
+        const endLabel = `${nextStartHour%12||12} ${nextStartHour<12?'AM':'PM'}`;
+        document.getElementById('nextSlotInfo').textContent = anyAvailable
+            ? `This booking ends at ${endLabel}. Want to book the next slot for the same customer right now?`
+            : `This booking ends at ${endLabel}, but there are no free slots left today.`;
+        document.getElementById('addNextSlotBtn').style.display = anyAvailable ? 'inline-block' : 'none';
+
+        panel.style.display = 'block';
+    }
+
+    // Suggests an amount for the next slot based on the hourly rate of the
+    // booking that was just made (admin can still edit it manually).
+    function updateNextSlotAmount() {
+        if (!lastBookingContext) return;
+        const dur = parseInt(document.getElementById('nextSlotDuration').value, 10) || 1;
+        document.getElementById('nextSlotAmount').value = Math.round(lastBookingContext.perHourRate * dur);
+    }
+
+    function addNextSlotBooking() {
+        if (!lastBookingContext) return;
+        const hourVal = document.getElementById('nextSlotHour').value;
+        const dur = parseInt(document.getElementById('nextSlotDuration').value, 10) || 1;
+        const amt = parseFloat(document.getElementById('nextSlotAmount').value) || 0;
+        const verified = document.getElementById('nextSlotVerified').value === 'Yes';
+        if (!hourVal) { addNotification('Please choose a time slot first', 'error'); return; }
+
+        // Check every hour the new duration would cover for conflicts.
+        const startH = parseInt(hourVal.split(':')[0], 10);
+        const newHours = [];
+        for (let d = 0; d < dur; d++) newHours.push(String((startH + d) % 24).padStart(2,'0') + ':00');
+        const occupiedCheck = getOccupiedHoursForDate(lastBookingContext.bookingDate);
+        const conflictHour = newHours.find(h => occupiedCheck.has(h));
+        if (conflictHour) {
+            addNotification('Slot conflict at ' + formatDateTime12(lastBookingContext.bookingDate + 'T' + conflictHour), 'error');
+            return;
+        }
+
+        let newId;
+        do { newId = 'GLOBAL-' + Math.random().toString(36).substring(2,7).toUpperCase(); }
+        while (bookings.some(b => b.bookingId === newId));
+
+        const amountPaid = verified ? amt : 0;
+        const newBooking = {
+            bookingId: newId,
+            fullName: lastBookingContext.fullName,
+            contactNumber: lastBookingContext.contactNumber,
+            teamName: lastBookingContext.teamName,
+            address: lastBookingContext.address,
+            bookingTime: `${lastBookingContext.bookingDate}T${hourVal}`,
+            duration: dur,
+            hours: newHours,
+            hourAmounts: newHours.map(() => Math.round(amt / dur)),
+            bookingAmount: amt,
+            amountPaid: amountPaid,
+            amountDue: Math.max(0, amt - amountPaid),
+            paymentMethod: lastBookingContext.paymentMethod,
+            submissionDateTime: new Date().toISOString(),
+            verified: verified
+        };
+        bookings.push(newBooking);
+        bookingsRef.doc(newBooking.bookingId).set(newBooking)
+            .catch(err => { console.error(err); addNotification('Could not sync booking to cloud - check internet', 'error'); });
+        saveAllData();
+        updateScheduleBookmark();
+        addNotification(`Booking created for ${newBooking.fullName}`, 'success');
+        showReceiptModal(newBooking);
+        updateFooterWidget();
+
+        // Offer to keep chaining forward from the end of this new slot.
+        const startHour = parseInt(hourVal.split(':')[0], 10);
+        lastBookingContext.nextStartHour = startHour + dur;
+        showNextSlotPanel();
+    }
+
+    function dismissNextSlotPanel() {
+        document.getElementById('nextSlotPanel').style.display = 'none';
+        lastBookingContext = null;
+    }
+
     function populateHourDropdown() {
         let select = document.getElementById('bookingHour'); 
         if (!select) return;
@@ -1626,13 +2643,169 @@
         }
     }
 
+    // ==================== PER-HOUR TIME SLOT + AMOUNT BREAKDOWN (multi-hour bookings) ====================
+    // When Duration is 2+ hours, show one row per hour with its OWN time-slot
+    // picker (any available hour, not forced to be consecutive) plus its own
+    // amount box, so day/night rate differences can be reflected instead of
+    // one flat lump sum, and staff can book non-consecutive hours in one go.
+    // Advanced hour-count selector (replaces the old plain Duration dropdown).
+    // Tapping a number sets how many hours this booking covers and reveals
+    // the per-hour time-slot pickers below.
+    function selectHourCount(n) {
+        document.getElementById('bookingDuration').value = n;
+        document.querySelectorAll('.hour-count-btn').forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.count, 10) === n);
+        });
+        updateHourlyBreakdown();
+    }
+
+    function updateHourlyBreakdown() {
+        const duration = parseInt(document.getElementById('bookingDuration').value, 10) || 1;
+        const container = document.getElementById('hourlyBreakdownContainer');
+        const list = document.getElementById('hourlyBreakdownList');
+        const bookingHourField = document.getElementById('bookingHour');
+        const bookingHour = bookingHourField.value;
+        const amountField = document.getElementById('bookingAmount');
+        const hourLabel = document.getElementById('bookingHourLabel');
+        const hourHint = document.getElementById('bookingHourHint');
+        const dateVal = document.getElementById('bookingDate').value;
+
+        if (duration <= 1 || !bookingHour) {
+            container.style.display = 'none';
+            amountField.readOnly = false;
+            bookingHourField.disabled = false;
+            hourLabel.textContent = 'Booking Time Slot';
+            hourHint.style.display = 'none';
+            list.innerHTML = '';
+            return;
+        }
+
+        const startHour = parseInt(bookingHour.split(':')[0], 10);
+        // Keep any hour/amount choices already made for rows that still apply after a duration change.
+        const existingRows = Array.from(list.querySelectorAll('[data-row]')).map(row => ({
+            hour: row.querySelector('select') ? row.querySelector('select').value : '',
+            amount: parseFloat(row.querySelector('input').value) || 0
+        }));
+        const currentTotal = parseFloat(amountField.value) || 0;
+        const perHourDefault = Math.round(currentTotal / duration) || 0;
+
+        // Default hours: keep whatever was already chosen per row, otherwise
+        // fall back to consecutive hours starting from the main time slot.
+        const defaults = [];
+        for (let d = 0; d < duration; d++) {
+            defaults.push(existingRows[d] && existingRows[d].hour ? existingRows[d].hour : (String((startHour + d) % 24).padStart(2, '0') + ':00'));
+        }
+
+        list.innerHTML = '';
+        for (let d = 0; d < duration; d++) {
+            const row = document.createElement('div');
+            row.setAttribute('data-row', d);
+            row.className = 'hourly-row';
+
+            const badge = document.createElement('span');
+            badge.className = 'hourly-row-badge';
+            badge.textContent = d + 1;
+
+            const select = document.createElement('select');
+            select.setAttribute('data-hour-index', d);
+            select.style.cssText = 'flex:1; min-width:170px; padding:8px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.08); color:var(--text-primary);';
+            select.onchange = () => { refreshHourlyBreakdownOptions(); recalculateTotalFromBreakdown(); };
+
+            const amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.placeholder = 'Amount';
+            amountInput.setAttribute('data-amount-index', d);
+            amountInput.value = existingRows[d] && existingRows[d].amount > 0 ? existingRows[d].amount : (perHourDefault || '');
+            amountInput.style.cssText = 'width:110px; padding:8px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.08); color:var(--text-primary);';
+            amountInput.oninput = recalculateTotalFromBreakdown;
+
+            row.appendChild(badge);
+            row.appendChild(select);
+            row.appendChild(amountInput);
+            list.appendChild(row);
+        }
+
+        refreshHourlyBreakdownOptions(defaults);
+        container.style.display = 'block';
+        amountField.readOnly = true;
+        // Hour selection now happens per-row below, so the single top slot
+        // picker just mirrors Hour 1 and is locked to avoid confusion.
+        bookingHourField.disabled = true;
+        hourLabel.textContent = 'Booking Time Slot (Hour 1)';
+        hourHint.style.display = 'block';
+        recalculateTotalFromBreakdown();
+    }
+
+    // Rebuilds the option list for every per-hour select so each row shows
+    // every hour of the day, marking any hour already booked by another
+    // reservation - or already chosen by a different row in this same
+    // booking - as unavailable. Pass the hours the rows should default to
+    // pre-select (only needed the first time each row is built).
+    function refreshHourlyBreakdownOptions(defaultValues) {
+        const selects = Array.from(document.querySelectorAll('#hourlyBreakdownList select[data-hour-index]'));
+        const dateVal = document.getElementById('bookingDate').value;
+        const realOccupied = dateVal ? getOccupiedHoursForDate(dateVal) : new Set();
+        const currentValues = selects.map((s, i) => (defaultValues && defaultValues[i]) || s.value);
+
+        selects.forEach((sel, idx) => {
+            const ownValue = currentValues[idx] || '';
+            const otherRowValues = new Set(currentValues.filter((v, i) => i !== idx && v));
+            sel.innerHTML = '';
+            for (let h = 0; h < 24; h++) {
+                const val = String(h).padStart(2, '0') + ':00';
+                const label = `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'} - ${(h + 1) % 12 || 12} ${(h + 1) < 12 ? 'AM' : 'PM'} ${(h >= 6 && h < 18) ? '🌞 Day' : '🌙 Night'}`;
+                const isOwn = val === ownValue;
+                const isBooked = !isOwn && (realOccupied.has(val) || otherRowValues.has(val));
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = label + (isBooked ? ' (Booked)' : ' (Available)');
+                opt.style.color = isBooked ? '#e74c3c' : '#2ecc71';
+                opt.disabled = isBooked;
+                sel.appendChild(opt);
+            }
+            if (ownValue) sel.value = ownValue;
+        });
+    }
+
+    function recalculateTotalFromBreakdown() {
+        const inputs = document.querySelectorAll('#hourlyBreakdownList input[data-amount-index]');
+        let total = 0;
+        inputs.forEach(inp => total += parseFloat(inp.value) || 0);
+        document.getElementById('bookingAmount').value = total;
+        updateDuePreview();
+    }
+
     function clearForm() {
         document.querySelectorAll('#bookingForm input, #bookingForm select').forEach(f => { 
             if (f.id != 'timePartition') f.value = ''; 
             else f.value='all'; 
             f.classList.remove('invalid'); 
         });
+        document.getElementById('dueAmountPreview').value = '';
+        document.getElementById('hourlyBreakdownContainer').style.display = 'none';
+        document.getElementById('hourlyBreakdownList').innerHTML = '';
+        document.getElementById('bookingAmount').readOnly = false;
+        document.getElementById('bookingHour').disabled = false;
+        document.getElementById('bookingHourLabel').textContent = 'Booking Time Slot';
+        document.getElementById('bookingHourHint').style.display = 'none';
+        selectHourCount(1);
+        dismissNextSlotPanel();
         updateBookingSlots();
+    }
+
+    // Live preview of what's still owed as the admin types the amount, the
+    // amount paid, or flips the Payment Verified dropdown.
+    function updateDuePreview() {
+        const amount = parseFloat(document.getElementById('bookingAmount').value) || 0;
+        const paidInput = document.getElementById('amountPaid');
+        let paid = paidInput.value === '' ? null : (parseFloat(paidInput.value) || 0);
+        if (paid === null) {
+            const verified = document.getElementById('paymentVerified').value;
+            paid = verified === 'Yes' ? amount : 0;
+        }
+        if (paid > amount) paid = amount;
+        const due = Math.max(0, amount - paid);
+        document.getElementById('dueAmountPreview').value = `${settings.currency} ${due}`;
     }
 
     // ========== HISTORY & CRM & ANALYTICS ==========
@@ -1640,16 +2813,20 @@
         let tbody = document.getElementById('bookingHistoryBody');
         if (!tbody) return;
         tbody.innerHTML = '';
-        
+
+        renderHistorySummaryBar(arr);
+
         if (!arr || arr.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px;">No booking records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" style="text-align:center; padding:20px;">No booking records found</td></tr>';
             return;
         }
         
         arr.sort((a,b) => new Date(b.bookingTime) - new Date(a.bookingTime)).forEach((b, i) => {
             let row = tbody.insertRow();
             let index = bookings.indexOf(b);
-            
+            const { total, paid, due, status } = getPaymentBreakdown(b);
+            const badgeClass = status === 'Paid' ? 'badge-paid' : status === 'Partial' ? 'badge-partial' : status === 'Waived' ? 'badge-waived' : 'badge-unpaid';
+
             row.innerHTML = `
                 <td>${i+1}</td>
                 <td>${b.bookingId || 'N/A'}</td>
@@ -1657,17 +2834,56 @@
                 <td>${b.contactNumber || ''}</td>
                 <td>${b.teamName || ''}</td>
                 <td>${b.address || ''}</td>
-                <td>${b.bookingTime ? new Date(b.bookingTime).toLocaleString() : ''}</td>
-                <td>${settings.currency} ${b.bookingAmount || 0}</td>
+                <td>${b.bookingTime ? formatDateTime12(b.bookingTime) : ''}</td>
+                <td>${settings.currency} ${total}</td>
+                <td style="color:var(--success-color); font-weight:bold;">${settings.currency} ${paid}</td>
+                <td style="color:${due > 0 ? 'var(--error-color)' : 'var(--success-color)'}; font-weight:bold;">${settings.currency} ${due}</td>
                 <td>${b.paymentMethod || ''}</td>
-                <td>${b.submissionDateTime ? new Date(b.submissionDateTime).toLocaleString() : ''}</td>
-                <td><button class="action-btn verify-btn ${b.verified ? 'verified' : ''}" onclick="toggleVerification(${index})">${b.verified ? 'Yes' : 'No'}</button></td>
+                <td>${b.submissionDateTime ? formatDateTime12(b.submissionDateTime) : ''}</td>
+                <td><span class="${badgeClass}">${status}</span></td>
                 <td>
                     <button class="action-btn" style="background:var(--accent-color); margin-bottom:3px;" onclick="editBooking(${index})">Edit</button>
+                    <button class="action-btn" style="background:#3498db; margin-bottom:3px;" onclick="openDuesPaymentModal('${b.bookingId}')">💰 Payment</button>
                     <button class="action-btn delete-btn" onclick="deleteBooking(${index})">Delete</button>
                 </td>
             `;
         });
+    }
+
+    // Quick at-a-glance totals for whatever is currently filtered/visible.
+    function renderHistorySummaryBar(arr) {
+        const bar = document.getElementById('historySummaryBar');
+        if (!bar) return;
+        const list = arr || [];
+        const breakdowns = list.map(getPaymentBreakdown);
+        const totalAmount = breakdowns.reduce((s, r) => s + r.total, 0);
+        const totalPaid = breakdowns.reduce((s, r) => s + r.paid, 0);
+        const totalDue = breakdowns.reduce((s, r) => s + r.due, 0);
+        bar.innerHTML = `
+            <div class="form-group" style="text-align:center; background:rgba(255,255,255,0.05); border-radius:10px; padding:10px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Showing</div>
+                <div style="font-size:18px; font-weight:bold;">${list.length} bookings</div>
+            </div>
+            <div class="form-group" style="text-align:center; background:rgba(255,255,255,0.05); border-radius:10px; padding:10px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Total Value</div>
+                <div style="font-size:18px; font-weight:bold;">${settings.currency} ${totalAmount.toLocaleString()}</div>
+            </div>
+            <div class="form-group" style="text-align:center; background:rgba(46,204,113,0.1); border-radius:10px; padding:10px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Collected</div>
+                <div style="font-size:18px; font-weight:bold; color:var(--success-color);">${settings.currency} ${totalPaid.toLocaleString()}</div>
+            </div>
+            <div class="form-group" style="text-align:center; background:rgba(231,76,60,0.1); border-radius:10px; padding:10px;">
+                <div style="font-size:12px; color:var(--text-secondary);">Due</div>
+                <div style="font-size:18px; font-weight:bold; color:var(--error-color);">${settings.currency} ${totalDue.toLocaleString()}</div>
+            </div>
+        `;
+    }
+
+    function setHistoryPaymentFilter(p, el) {
+        historyPaymentFilter = p;
+        document.querySelectorAll('#historyPaymentFilterBar button').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        filterHistory();
     }
 
     function filterHistory() {
@@ -1686,6 +2902,16 @@
                 // Fix: unified boundary consistent with booking form (Day=6-17, Night=18-5)
                 if (historyPartitionFilter === 'day') return h >= 6 && h < 18;
                 else return h < 6 || h >= 18;
+            });
+        }
+
+        if (historyPaymentFilter !== 'all') {
+            filtered = filtered.filter(b => {
+                const status = getPaymentBreakdown(b).status;
+                if (historyPaymentFilter === 'paid') return status === 'Paid' || status === 'Waived';
+                if (historyPaymentFilter === 'partial') return status === 'Partial';
+                if (historyPaymentFilter === 'unpaid') return status === 'Unpaid';
+                return true;
             });
         }
         
@@ -1733,13 +2959,210 @@
     function toggleVerification(i) {
         if (bookings[i]) {
             bookings[i].verified = !bookings[i].verified;
-            bookingsRef.doc(bookings[i].bookingId).update({ verified: bookings[i].verified })
-                .catch(err => { console.error(err); addNotification('Could not sync payment status to cloud', 'error'); });
+            // Keep the paid/due amounts consistent with the manual toggle so
+            // the Dues tab always matches what's shown in Booking History.
+            const total = parseFloat(bookings[i].bookingAmount) || 0;
+            bookings[i].amountPaid = bookings[i].verified ? total : 0;
+            bookings[i].amountDue = bookings[i].verified ? 0 : total;
+            bookingsRef.doc(bookings[i].bookingId).update({
+                verified: bookings[i].verified,
+                amountPaid: bookings[i].amountPaid,
+                amountDue: bookings[i].amountDue
+            }).catch(err => { console.error(err); addNotification('Could not sync payment status to cloud', 'error'); });
             saveAllData();
             filterHistory();
             updateScheduleBookmark();
             updateFooterWidget();
+            if (activeTab === 'dues') renderDues();
         }
+    }
+
+    // ==================== DUES & PAYMENTS ====================
+    function toggleDues() {
+        hideAllSections();
+        document.getElementById('duesContainer').style.display = 'block';
+        document.getElementById('duesContainer').classList.add('active-tab');
+        activeTab = 'dues';
+        applyBlur();
+        renderDues();
+    }
+
+    // Works out total/paid/due/status for any booking, even older bookings
+    // saved before "Amount Paid" existed (falls back to the Yes/No status).
+    function getPaymentBreakdown(b) {
+        const total = parseFloat(b.bookingAmount) || 0;
+        let paid = (b.amountPaid !== undefined && b.amountPaid !== null) ? parseFloat(b.amountPaid) || 0 : (b.verified ? total : 0);
+        if (paid > total) paid = total;
+        if (paid < 0) paid = 0;
+        const due = Math.max(0, total - paid);
+        let status = 'Unpaid';
+        if (b.dueWaived && due <= 0) status = 'Waived';
+        else if (total > 0 && due <= 0) status = 'Paid';
+        else if (paid > 0) status = 'Partial';
+        return { total, paid, due, status };
+    }
+
+    function renderDues() {
+        const filterEl = document.getElementById('duesStatusFilter');
+        const searchEl = document.getElementById('duesSearchInput');
+        const filter = filterEl ? filterEl.value : 'outstanding';
+        const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+
+        let rows = bookings.map(b => ({ b, ...getPaymentBreakdown(b) }));
+
+        if (filter === 'outstanding') rows = rows.filter(r => r.due > 0);
+        else if (filter === 'unpaid') rows = rows.filter(r => r.status === 'Unpaid');
+        else if (filter === 'partial') rows = rows.filter(r => r.status === 'Partial');
+        else if (filter === 'paid') rows = rows.filter(r => r.status === 'Paid');
+        else if (filter === 'waived') rows = rows.filter(r => r.status === 'Waived');
+
+        if (search) {
+            rows = rows.filter(r =>
+                (r.b.fullName || '').toLowerCase().includes(search) ||
+                (r.b.teamName || '').toLowerCase().includes(search) ||
+                (r.b.contactNumber || '').toLowerCase().includes(search) ||
+                (r.b.bookingId || '').toLowerCase().includes(search)
+            );
+        }
+
+        rows.sort((a, b) => new Date(b.b.bookingTime) - new Date(a.b.bookingTime));
+
+        const allBreakdowns = bookings.map(getPaymentBreakdown);
+        const totalDue = allBreakdowns.reduce((s, r) => s + r.due, 0);
+        const totalCollected = allBreakdowns.reduce((s, r) => s + r.paid, 0);
+        const unpaidCount = allBreakdowns.filter(r => r.status === 'Unpaid').length;
+        const partialCount = allBreakdowns.filter(r => r.status === 'Partial').length;
+
+        document.getElementById('duesTotalOutstanding').textContent = `${settings.currency} ${totalDue.toFixed(0)}`;
+        document.getElementById('duesTotalCollected').textContent = `${settings.currency} ${totalCollected.toFixed(0)}`;
+        document.getElementById('duesUnpaidCount').textContent = unpaidCount;
+        document.getElementById('duesPartialCount').textContent = partialCount;
+
+        const tbody = document.getElementById('duesTableBody');
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">No matching records.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            const { b, total, paid, due, status } = r;
+            const badgeClass = status === 'Paid' ? 'badge-paid' : status === 'Partial' ? 'badge-partial' : status === 'Waived' ? 'badge-waived' : 'badge-unpaid';
+            return `<tr>
+                <td>${b.bookingId || ''}</td>
+                <td>${b.fullName || ''}<div style="font-size:11px; color:var(--text-secondary);">${b.teamName || ''}</div></td>
+                <td>${b.contactNumber || ''}</td>
+                <td>${b.bookingTime ? formatDateTime12(b.bookingTime) : ''}</td>
+                <td>${settings.currency} ${total}</td>
+                <td>${settings.currency} ${paid}</td>
+                <td style="color:${due > 0 ? 'var(--error-color)' : 'var(--success-color)'}; font-weight:bold;">${settings.currency} ${due}</td>
+                <td><span class="${badgeClass}">${status}</span>${b.dueNote ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:3px;">📝 ${b.dueNote}</div>` : ''}</td>
+                <td><button class="action-btn" style="background:var(--accent-color);" onclick="openDuesPaymentModal('${b.bookingId}')">Manage Payment</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    // Central place that actually writes a payment change - keeps local
+    // state, Firestore, and every other view (History, footer, schedule) in sync.
+    function applyDuesUpdate(b, newPaid, note) {
+        const total = parseFloat(b.bookingAmount) || 0;
+        if (newPaid > total) newPaid = total;
+        if (newPaid < 0) newPaid = 0;
+        const newDue = Math.max(0, total - newPaid);
+        b.amountPaid = newPaid;
+        b.amountDue = newDue;
+        b.verified = newDue <= 0;
+        b.dueWaived = false;
+        const payload = { amountPaid: newPaid, amountDue: newDue, verified: b.verified, dueWaived: false };
+        if (note !== undefined) { b.dueNote = note; payload.dueNote = note; }
+        bookingsRef.doc(b.bookingId).update(payload)
+            .catch(err => { console.error(err); addNotification('Could not sync payment to cloud - check internet', 'error'); });
+        saveAllData();
+        renderDues();
+        filterHistory();
+        updateScheduleBookmark();
+        updateFooterWidget();
+    }
+
+    let duesModalBookingId = null;
+
+    function openDuesPaymentModal(bookingId) {
+        const b = bookings.find(x => x.bookingId === bookingId);
+        if (!b) return;
+        duesModalBookingId = bookingId;
+        const { total, paid, due } = getPaymentBreakdown(b);
+        document.getElementById('duesModalCustomerInfo').textContent =
+            `${b.fullName || ''} — ${b.teamName || ''} — ${b.bookingTime ? formatDateTime12(b.bookingTime) : ''}`;
+        document.getElementById('duesModalTotal').textContent = `${settings.currency} ${total}`;
+        document.getElementById('duesModalPaid').textContent = `${settings.currency} ${paid}`;
+        document.getElementById('duesModalDue').textContent = `${settings.currency} ${due}`;
+        document.getElementById('duesModalPaymentInput').value = '';
+        document.getElementById('duesModalExactPaidInput').value = '';
+        document.getElementById('duesModalNoteInput').value = b.dueNote || '';
+        document.getElementById('duesModalMsg').textContent = '';
+        document.getElementById('duesPaymentModal').style.display = 'flex';
+    }
+
+    function duesModalError(msg) {
+        const el = document.getElementById('duesModalMsg');
+        el.style.color = 'var(--error-color)';
+        el.textContent = msg;
+    }
+
+    function submitDuesPayment() {
+        const b = bookings.find(x => x.bookingId === duesModalBookingId);
+        if (!b) return;
+        const extra = parseFloat(document.getElementById('duesModalPaymentInput').value);
+        if (isNaN(extra) || extra <= 0) { duesModalError('Enter a valid amount received.'); return; }
+        const { paid } = getPaymentBreakdown(b);
+        const note = document.getElementById('duesModalNoteInput').value.trim();
+        applyDuesUpdate(b, paid + extra, note || undefined);
+        addNotification(`Payment of ${settings.currency} ${extra} recorded for ${b.fullName}`, 'success');
+        hideModal('duesPaymentModal');
+    }
+
+    function submitDuesExactPaid() {
+        const b = bookings.find(x => x.bookingId === duesModalBookingId);
+        if (!b) return;
+        const raw = document.getElementById('duesModalExactPaidInput').value;
+        const exact = parseFloat(raw);
+        if (raw === '' || isNaN(exact) || exact < 0) { duesModalError('Enter a valid amount.'); return; }
+        const note = document.getElementById('duesModalNoteInput').value.trim();
+        applyDuesUpdate(b, exact, note || undefined);
+        addNotification(`Paid amount set to ${settings.currency} ${exact} for ${b.fullName}`, 'success');
+        hideModal('duesPaymentModal');
+    }
+
+    function markDueFullyPaidFromModal() {
+        const b = bookings.find(x => x.bookingId === duesModalBookingId);
+        if (!b) return;
+        const total = parseFloat(b.bookingAmount) || 0;
+        const note = document.getElementById('duesModalNoteInput').value.trim();
+        applyDuesUpdate(b, total, note || undefined);
+        addNotification(`Marked fully paid for ${b.fullName}`, 'success');
+        hideModal('duesPaymentModal');
+    }
+
+    // Clears a due without recording extra payment - e.g. a discount or a
+    // customer relationship write-off. Kept clearly labelled so it never gets
+    // confused with an actual cash payment in the ledger.
+    function waiveDueFromModal() {
+        const b = bookings.find(x => x.bookingId === duesModalBookingId);
+        if (!b) return;
+        if (!confirm('Waive the remaining due amount? This marks the booking as settled without recording a payment.')) return;
+        const note = document.getElementById('duesModalNoteInput').value.trim() || 'Due waived';
+        b.amountDue = 0;
+        b.verified = true;
+        b.dueWaived = true;
+        b.dueNote = note;
+        bookingsRef.doc(b.bookingId).update({ amountDue: 0, verified: true, dueWaived: true, dueNote: note })
+            .catch(err => { console.error(err); addNotification('Could not sync to cloud - check internet', 'error'); });
+        saveAllData();
+        renderDues();
+        filterHistory();
+        updateScheduleBookmark();
+        updateFooterWidget();
+        addNotification(`Due waived for ${b.fullName}`, 'info');
+        hideModal('duesPaymentModal');
     }
 
     // --- Analytics ---
@@ -1798,37 +3221,41 @@
             label = `Year ${year}`;
         }
 
-        const totalRevenue = filtered.reduce((acc, b) => acc + (parseFloat(b.bookingAmount) || 0), 0);
-        const totalBookings = filtered.length;
-        
-        // Fix: also calculate pending/unpaid revenue from the full unfiltered set for that period
+        // Look at every booking in this period (not just "verified" ones) so
+        // partial payments are counted accurately rather than all-or-nothing.
         let allPeriodBookings = bookings;
         if (period === 'day') allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
         else if (period === 'month') allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
         else if (period === 'year') { let year = dateVal.toString().split('-')[0]; allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(year)); }
-        const unpaidRevenue = allPeriodBookings.filter(b => !b.verified).reduce((acc, b) => acc + (parseFloat(b.bookingAmount) || 0), 0);
-        const totalExpected = totalRevenue + unpaidRevenue;
-        
-        const dayRevenue = filtered.filter(b => {
-            const h = new Date(b.bookingTime).getHours();
+
+        const breakdowns = allPeriodBookings.map(b => ({ b, ...getPaymentBreakdown(b) }));
+        const collectedRevenue = breakdowns.reduce((acc, r) => acc + r.paid, 0);
+        const unpaidRevenue = breakdowns.reduce((acc, r) => acc + r.due, 0);
+        const totalExpected = breakdowns.reduce((acc, r) => acc + r.total, 0);
+        const totalBookings = allPeriodBookings.length;
+        const avgBookingValue = totalBookings > 0 ? totalExpected / totalBookings : 0;
+
+        const dayRevenue = breakdowns.filter(r => {
+            const h = new Date(r.b.bookingTime).getHours();
             return h >= 6 && h < 18;
-        }).reduce((acc, b) => acc + (parseFloat(b.bookingAmount)||0), 0);
-        
-        const nightRevenue = totalRevenue - dayRevenue;
+        }).reduce((acc, r) => acc + r.paid, 0);
+
+        const nightRevenue = collectedRevenue - dayRevenue;
 
         const methods = {};
-        filtered.forEach(b => {
-            methods[b.paymentMethod] = (methods[b.paymentMethod] || 0) + (parseFloat(b.bookingAmount) || 0);
+        allPeriodBookings.forEach(b => {
+            const { paid } = getPaymentBreakdown(b);
+            if (paid > 0) methods[b.paymentMethod] = (methods[b.paymentMethod] || 0) + paid;
         });
 
         document.getElementById('incomeSummaryCards').innerHTML = `
             <div class="income-card paid">
-                <h3>💰 Total Net Revenue</h3>
-                <div style="font-size:36px; color:var(--success-color); font-weight:bold;">${settings.currency} ${totalRevenue.toLocaleString()}</div>
-                <div style="color:var(--text-secondary);">${label} · ${totalBookings} paid bookings</div>
+                <h3>💰 Total Collected</h3>
+                <div style="font-size:36px; color:var(--success-color); font-weight:bold;">${settings.currency} ${collectedRevenue.toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">${label} · ${totalBookings} bookings</div>
             </div>
             <div class="income-card" style="border-left-color: var(--error-color); background: rgba(231,76,60,0.1);">
-                <h3>⏳ Pending / Unpaid</h3>
+                <h3>⏳ Outstanding Due</h3>
                 <div style="font-size:36px; color:var(--error-color); font-weight:bold;">${settings.currency} ${unpaidRevenue.toLocaleString()}</div>
                 <div style="color:var(--text-secondary);">Expected total: ${settings.currency} ${totalExpected.toLocaleString()}</div>
             </div>
@@ -1838,27 +3265,39 @@
                     <div><span style="color:var(--highlight-yellow);">Day:</span> ${dayRevenue.toLocaleString()}</div>
                     <div><span style="color:var(--accent-color);">Night:</span> ${nightRevenue.toLocaleString()}</div>
                 </div>
-                <div style="margin-top:5px; font-size:12px;">${totalBookings} paid bookings</div>
+                <div style="margin-top:5px; font-size:12px;">Collected amounts only</div>
+            </div>
+            <div class="income-card" style="border-left-color: #3498db;">
+                <h3>📊 Average Per Booking</h3>
+                <div style="font-size:36px; color:#3498db; font-weight:bold;">${settings.currency} ${Math.round(avgBookingValue).toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">Across ${totalBookings} bookings this period</div>
             </div>
         `;
 
         let tbody = '';
-        filtered.sort((a,b) => new Date(b.bookingTime) - new Date(a.bookingTime)).forEach(b => {
+        breakdowns.sort((a,b) => new Date(b.b.bookingTime) - new Date(a.b.bookingTime)).forEach(r => {
+            const b = r.b;
             const dt = new Date(b.bookingTime);
             const h = dt.getHours();
             const part = (h >= 6 && h < 18) ? 'Day' : 'Night';
+            const badgeClass = r.status === 'Paid' ? 'badge-paid' : r.status === 'Partial' ? 'badge-partial' : r.status === 'Waived' ? 'badge-waived' : 'badge-unpaid';
             tbody += `<tr>
                 <td>${dt.toLocaleDateString()}</td>
-                <td>${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
+                <td>${dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})}</td>
                 <td>${b.teamName} <br><span style="font-size:11px;color:var(--text-secondary)">${b.fullName}</span></td>
                 <td>${b.paymentMethod}</td>
                 <td><span class="day-night-label">${part}</span></td>
-                <td style="font-weight:bold; color:var(--success-color);">${settings.currency} ${parseInt(b.bookingAmount).toLocaleString()}</td>
+                <td>${settings.currency} ${r.total.toLocaleString()}</td>
+                <td style="font-weight:bold; color:var(--success-color);">${settings.currency} ${r.paid.toLocaleString()}</td>
+                <td style="font-weight:bold; color:${r.due > 0 ? 'var(--error-color)' : 'var(--success-color)'};">${settings.currency} ${r.due.toLocaleString()}</td>
+                <td><span class="${badgeClass}">${r.status}</span></td>
             </tr>`;
         });
-        document.getElementById('incomeTableBody').innerHTML = tbody || '<tr><td colspan="6" style="text-align:center;">No data found</td></tr>';
-        
-        renderCharts(filtered, period, methods);
+        document.getElementById('incomeTableBody').innerHTML = tbody || '<tr><td colspan="9" style="text-align:center;">No data found</td></tr>';
+
+        // Charts reflect money actually collected, so partial payments show up correctly.
+        const chartData = breakdowns.filter(r => r.paid > 0).map(r => ({ bookingTime: r.b.bookingTime, bookingAmount: r.paid }));
+        renderCharts(chartData, period, methods);
     }
 
     function renderCharts(data, period, methodData) {
@@ -1868,46 +3307,67 @@
         if (revenueChartInstance) revenueChartInstance.destroy();
         if (methodChartInstance) methodChartInstance.destroy();
 
-        let labels = [], values = [];
-        
+        let labels = [], values = [], counts = [];
+
         if (period === 'day') {
             const hourly = new Array(24).fill(0);
-            data.forEach(b => hourly[new Date(b.bookingTime).getHours()] += parseFloat(b.bookingAmount));
-            labels = hourly.map((_, i) => `${i}:00`);
+            const hourlyCount = new Array(24).fill(0);
+            data.forEach(b => { const h = new Date(b.bookingTime).getHours(); hourly[h] += parseFloat(b.bookingAmount); hourlyCount[h] += 1; });
+            labels = hourly.map((_, i) => `${i%12||12}${i<12?'AM':'PM'}`);
             values = hourly;
+            counts = hourlyCount;
         } else {
-            const daily = {};
+            const daily = {}, dailyCount = {};
             data.forEach(b => {
                 const d = new Date(b.bookingTime).getDate();
                 daily[d] = (daily[d] || 0) + parseFloat(b.bookingAmount);
+                dailyCount[d] = (dailyCount[d] || 0) + 1;
             });
             labels = Object.keys(daily).map(d => `Day ${d}`);
             values = Object.values(daily);
+            counts = Object.values(dailyCount);
         }
 
+        // Combo chart: revenue as bars, booking count as an overlaid line on
+        // a secondary axis, so trend AND volume are visible together.
         revenueChartInstance = new Chart(ctxTrend, {
-            type: 'line',
             data: {
                 labels: labels,
-                datasets: [{
-                    label: `Revenue (${settings.currency})`,
-                    data: values,
-                    borderColor: '#2ecc71',
-                    backgroundColor: 'rgba(46, 204, 113, 0.2)',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true
-                }]
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: `Revenue (${settings.currency})`,
+                        data: values,
+                        backgroundColor: 'rgba(46, 204, 113, 0.55)',
+                        borderColor: '#2ecc71',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Bookings',
+                        data: counts,
+                        borderColor: '#f1c40f',
+                        backgroundColor: 'rgba(241,196,15,0.2)',
+                        borderWidth: 2,
+                        tension: 0.35,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#f1c40f',
+                        yAxisID: 'y1'
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { labels: { color: '#fff' } },
-                    title: { display: true, text: 'Income Trend', color: '#fff' }
+                    title: { display: true, text: '📈 Revenue vs Bookings', color: '#fff' }
                 },
                 scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ccc' } },
+                    y: { position: 'left', grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ccc' }, title: { display: true, text: 'Revenue', color: '#2ecc71' } },
+                    y1: { position: 'right', grid: { display: false }, ticks: { color: '#f1c40f', stepSize: 1, precision: 0 }, title: { display: true, text: 'Bookings', color: '#f1c40f' } },
                     x: { grid: { display: false }, ticks: { color: '#ccc' } }
                 }
             }
@@ -1919,7 +3379,7 @@
                 labels: Object.keys(methodData),
                 datasets: [{
                     data: Object.values(methodData),
-                    backgroundColor: ['#3498db', '#e74c3c', '#f1c40f', '#9b59b6'],
+                    backgroundColor: ['#3498db', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22'],
                     borderWidth: 0
                 }]
             },
@@ -1928,10 +3388,270 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: 'bottom', labels: { color: '#fff' } },
-                    title: { display: true, text: 'Payment Methods', color: '#fff' }
+                    title: { display: true, text: '💳 Payment Methods', color: '#fff' }
                 }
             }
         });
+
+        // ==================== DEEPER TIMING ANALYTICS ====================
+        // These two always look at hour-of-day / day-of-week across every
+        // booking in the selected period (regardless of Day/Month/Year view),
+        // so peak times and best weekdays are visible no matter which
+        // period filter is active.
+        if (hourlyChartInstance) hourlyChartInstance.destroy();
+        if (weekdayChartInstance) weekdayChartInstance.destroy();
+
+        const hourlyRevenue = new Array(24).fill(0);
+        const hourlyCount = new Array(24).fill(0);
+        data.forEach(b => {
+            const h = new Date(b.bookingTime).getHours();
+            hourlyRevenue[h] += parseFloat(b.bookingAmount);
+            hourlyCount[h] += 1;
+        });
+        const hourlyLabels = hourlyRevenue.map((_, i) => `${i%12||12}${i<12?'AM':'PM'}`);
+        // Day hours (6AM-6PM) in gold, night hours in slate - so the time-of-day
+        // pattern is visible at a glance, not just from the numbers.
+        const hourlyColors = hourlyRevenue.map((_, i) => (i >= 6 && i < 18) ? 'rgba(241,196,15,0.8)' : 'rgba(52,73,94,0.9)');
+
+        const ctxHourly = document.getElementById('hourlyPerformanceChart').getContext('2d');
+        hourlyChartInstance = new Chart(ctxHourly, {
+            type: 'bar',
+            data: {
+                labels: hourlyLabels,
+                datasets: [{
+                    label: `Revenue (${settings.currency})`,
+                    data: hourlyRevenue,
+                    backgroundColor: hourlyColors,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: '⏱️ Peak Hours (🌞 Day / 🌙 Night)', color: '#fff' },
+                    tooltip: { callbacks: { afterLabel: ctx => `${hourlyCount[ctx.dataIndex]} booking(s) at this hour` } }
+                },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ccc' } },
+                    x: { grid: { display: false }, ticks: { color: '#ccc', maxRotation: 0, autoSkip: true, font: { size: 10 } } }
+                }
+            }
+        });
+
+        const weekdayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const weekdayRevenue = new Array(7).fill(0);
+        const weekdayCount = new Array(7).fill(0);
+        data.forEach(b => {
+            const d = new Date(b.bookingTime).getDay();
+            weekdayRevenue[d] += parseFloat(b.bookingAmount);
+            weekdayCount[d] += 1;
+        });
+
+        const ctxWeekday = document.getElementById('weekdayPerformanceChart').getContext('2d');
+        weekdayChartInstance = new Chart(ctxWeekday, {
+            type: 'bar',
+            data: {
+                labels: weekdayLabels,
+                datasets: [{
+                    label: `Revenue (${settings.currency})`,
+                    data: weekdayRevenue,
+                    backgroundColor: 'rgba(52,152,219,0.8)',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: '📅 Best Days of the Week', color: '#fff' },
+                    tooltip: { callbacks: { afterLabel: ctx => `${weekdayCount[ctx.dataIndex]} booking(s)` } }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ccc' } },
+                    y: { grid: { display: false }, ticks: { color: '#ccc' } }
+                }
+            }
+        });
+    }
+
+    // ==================== ARENA EXPENDITURE (running costs vs income vs profit) ====================
+    function toggleExpenditure() {
+        hideAllSections();
+        document.getElementById('expenditureContainer').style.display = 'block';
+        document.getElementById('expenditureContainer').classList.add('active-tab');
+        activeTab = 'expenditure';
+        applyBlur();
+        if (!document.getElementById('expenseDate').value) {
+            document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+        }
+        toggleExpenseDateInput();
+        renderExpenditure();
+    }
+
+    function toggleExpenseDateInput() {
+        const period = document.querySelector('input[name="expensePeriod"]:checked').value;
+        const input = document.getElementById('expenseDateInput');
+        if (period === 'day') {
+            input.type = 'date';
+            if (!input.value) input.value = new Date().toISOString().split('T')[0];
+        } else if (period === 'month') {
+            input.type = 'month';
+            if (!input.value) input.value = new Date().toISOString().slice(0,7);
+        } else {
+            input.type = 'number';
+            input.placeholder = 'YYYY';
+            input.value = new Date().getFullYear();
+        }
+        renderExpenditure();
+    }
+
+    function addExpense() {
+        const date = document.getElementById('expenseDate').value;
+        const category = document.getElementById('expenseCategory').value;
+        const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+        const description = document.getElementById('expenseDescription').value.trim();
+        const paymentMethod = document.getElementById('expensePaymentMethod').value;
+
+        if (!date) { addNotification('Please choose a date for this expense', 'error'); return; }
+        if (amount <= 0) { addNotification('Please enter a valid expense amount', 'error'); return; }
+
+        let newId;
+        do { newId = 'EXP-' + Math.random().toString(36).substring(2,7).toUpperCase(); }
+        while (expenses.some(e => e.expenseId === newId));
+
+        const newExpense = {
+            expenseId: newId,
+            date,
+            category,
+            amount,
+            description,
+            paymentMethod,
+            createdAt: new Date().toISOString()
+        };
+        expenses.push(newExpense);
+        if (expensesRef) {
+            expensesRef.doc(newExpense.expenseId).set(newExpense)
+                .catch(err => { console.error(err); addNotification('Could not sync expense to cloud - check internet', 'error'); });
+        }
+        addNotification(`Expense of ${settings.currency} ${amount.toLocaleString()} added (${category})`, 'success');
+
+        document.getElementById('expenseAmount').value = '';
+        document.getElementById('expenseDescription').value = '';
+        renderExpenditure();
+    }
+
+    function deleteExpense(expenseId) {
+        if (!confirm('Delete this expense entry?')) return;
+        expenses = expenses.filter(e => e.expenseId !== expenseId);
+        if (expensesRef) {
+            expensesRef.doc(expenseId).delete()
+                .catch(err => { console.error(err); addNotification('Could not remove expense from cloud - check internet', 'error'); });
+        }
+        addNotification('Expense removed', 'info');
+        renderExpenditure();
+    }
+
+    function renderExpenditure() {
+        const period = document.querySelector('input[name="expensePeriod"]:checked').value;
+        const dateInput = document.getElementById('expenseDateInput');
+        let dateVal = dateInput.value;
+        if (!dateVal) {
+            const now = new Date();
+            dateVal = period === 'day' ? now.toISOString().split('T')[0] :
+                      period === 'month' ? now.toISOString().slice(0, 7) :
+                      now.getFullYear().toString();
+        }
+
+        let label = '';
+        let periodExpenses, periodBookings;
+        if (period === 'day') {
+            periodExpenses = expenses.filter(e => e.date === dateVal);
+            periodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
+            label = new Date(dateVal).toDateString();
+        } else if (period === 'month') {
+            periodExpenses = expenses.filter(e => e.date && e.date.startsWith(dateVal));
+            periodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
+            const [y, m] = dateVal.split('-');
+            label = new Date(y, m - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+        } else {
+            const year = dateVal.toString().split('-')[0];
+            periodExpenses = expenses.filter(e => e.date && e.date.startsWith(year));
+            periodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(year));
+            label = `Year ${year}`;
+        }
+
+        // Income = actual money collected from bookings in this period (not just the expected total).
+        const totalIncome = periodBookings.reduce((acc, b) => acc + getPaymentBreakdown(b).paid, 0);
+        const totalExpenses = periodExpenses.reduce((acc, e) => acc + e.amount, 0);
+        const netProfit = totalIncome - totalExpenses;
+
+        document.getElementById('expenseSummaryCards').innerHTML = `
+            <div class="income-card paid">
+                <h3>💰 Income (Collected)</h3>
+                <div style="font-size:36px; color:var(--success-color); font-weight:bold;">${settings.currency} ${totalIncome.toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">${label}</div>
+            </div>
+            <div class="income-card" style="border-left-color: var(--error-color); background: rgba(231,76,60,0.1);">
+                <h3>🧾 Total Expenditure</h3>
+                <div style="font-size:36px; color:var(--error-color); font-weight:bold;">${settings.currency} ${totalExpenses.toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">${periodExpenses.length} expense ${periodExpenses.length === 1 ? 'entry' : 'entries'}</div>
+            </div>
+            <div class="income-card" style="border-left-color: ${netProfit >= 0 ? 'var(--success-color)' : 'var(--error-color)'};">
+                <h3>📈 Net Profit</h3>
+                <div style="font-size:36px; color:${netProfit >= 0 ? 'var(--success-color)' : 'var(--error-color)'}; font-weight:bold;">${settings.currency} ${netProfit.toLocaleString()}</div>
+                <div style="color:var(--text-secondary);">${netProfit >= 0 ? 'Profit' : 'Loss'} this period</div>
+            </div>
+            <div class="income-card" style="border-left-color: #3498db;">
+                <h3>📊 Expense Ratio</h3>
+                <div style="font-size:36px; color:#3498db; font-weight:bold;">${totalIncome > 0 ? Math.round((totalExpenses / totalIncome) * 100) : 0}%</div>
+                <div style="color:var(--text-secondary);">Of income spent on running costs</div>
+            </div>
+        `;
+
+        // Category breakdown
+        const byCategory = {};
+        periodExpenses.forEach(e => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
+        const categoryIcons = { Food: '🍔', Water: '💧', Electricity: '💡', 'Petrol/Fuel': '⛽', Salaries: '👷', Maintenance: '🔧', Rent: '🏠', Equipment: '🥅', Other: '📦' };
+        let catHtml = '';
+        Object.keys(byCategory).sort((a,b) => byCategory[b] - byCategory[a]).forEach(cat => {
+            catHtml += `<div class="arena-feature-card" style="cursor:default;">
+                <div class="arena-feature-icon">${categoryIcons[cat] || '📦'}</div>
+                <h3>${cat}</h3>
+                <p style="font-weight:bold; color:var(--error-color);">${settings.currency} ${byCategory[cat].toLocaleString()}</p>
+            </div>`;
+        });
+        document.getElementById('expenseCategoryBreakdown').innerHTML = catHtml || '<p style="color:var(--text-secondary); padding: 10px;">No expenses recorded for this period yet.</p>';
+
+        // Detailed expense log table (most recent first)
+        let tbody = '';
+        periodExpenses.slice().sort((a,b) => (b.date + (b.createdAt||'')).localeCompare(a.date + (a.createdAt||''))).forEach(e => {
+            tbody += `<tr>
+                <td>${new Date(e.date).toLocaleDateString()}</td>
+                <td>${categoryIcons[e.category] || '📦'} ${e.category}</td>
+                <td>${e.description || '-'}</td>
+                <td>${e.paymentMethod || '-'}</td>
+                <td style="font-weight:bold; color:var(--error-color);">${settings.currency} ${e.amount.toLocaleString()}</td>
+                <td><button onclick="deleteExpense('${e.expenseId}')" style="background:var(--error-color); padding:6px 10px; font-size:12px;">🗑️ Delete</button></td>
+            </tr>`;
+        });
+        document.getElementById('expenseTableBody').innerHTML = tbody || '<tr><td colspan="6" style="text-align:center;">No expenses recorded for this period</td></tr>';
+    }
+
+    function exportExpenseReport() {
+        const period = document.querySelector('input[name="expensePeriod"]:checked').value;
+        const dateVal = document.getElementById('expenseDateInput').value || 'All_Time';
+        const rows = expenses
+            .filter(e => period === 'day' ? e.date === dateVal : e.date && e.date.startsWith(dateVal))
+            .map(e => ({ Date: e.date, Category: e.category, Description: e.description, 'Paid Via': e.paymentMethod, Amount: e.amount }));
+        if (!rows.length) { addNotification('No expenses to export for this period', 'error'); return; }
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+        XLSX.writeFile(wb, `GlobalRush_Expenses_${dateVal}.xlsx`);
     }
 
     // --- CRM ---
@@ -2127,12 +3847,24 @@
         bookings[i].bookingAmount = parseFloat(document.getElementById('editBookingAmount').value) || 0;
         bookings[i].paymentMethod = document.getElementById('editPaymentMethod').value;
         bookings[i].verified = document.getElementById('editPaymentVerified').value === 'Yes';
+        // Keep the paid/due amounts consistent with the edited total and status.
+        const total = bookings[i].bookingAmount;
+        if (bookings[i].verified) {
+            bookings[i].amountPaid = total;
+            bookings[i].amountDue = 0;
+        } else {
+            let existingPaid = parseFloat(bookings[i].amountPaid) || 0;
+            if (existingPaid > total) existingPaid = total;
+            bookings[i].amountPaid = existingPaid;
+            bookings[i].amountDue = Math.max(0, total - existingPaid);
+        }
         bookingsRef.doc(bookings[i].bookingId).set(bookings[i])
             .catch(err => { console.error(err); addNotification('Could not sync edit to cloud - check internet', 'error'); });
         saveAllData();
         filterHistory();
         updateScheduleBookmark();
         updateFooterWidget();
+        if (activeTab === 'dues') renderDues();
         hideModal('editBookingModal');
         addNotification(`Booking for ${bookings[i].fullName} updated`, 'success');
     }
@@ -2165,12 +3897,15 @@
                     const isToday = dateStr === todayStr;
                     const isPast = new Date(dateStr) < new Date(todayStr);
                     const dayBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateStr));
-                    const bookedCount = dayBookings.length;
-                    const paidCount = dayBookings.filter(b=>b.verified).length;
+                    // Count HOURS booked, not booking records - one booking
+                    // covering 2 hours should read "2 book", not "1 book".
+                    const hoursOf = b => (Array.isArray(b.hours) && b.hours.length) ? b.hours.length : (b.duration || 1);
+                    const bookedCount = dayBookings.reduce((acc, b) => acc + hoursOf(b), 0);
+                    const paidCount = dayBookings.filter(b=>b.verified).reduce((acc, b) => acc + hoursOf(b), 0);
                     gridHtml += `<div class="calendar-cell ${isPast?'past':''} ${isToday?'today':''}" onclick="viewDailyBreakdown('${dateStr}')">
                                     <span class="day-number">${dayCounter}</span>
-                                    ${isPast && bookedCount === 0 ? '<span style="font-size:11px; color:var(--text-secondary);">Closed</span>' : bookedCount>0 ? `<span class="booking-count">${bookedCount} book</span>` : '<span style="font-size:11px; color:var(--success-color);">Free</span>'}
-                                    ${paidCount>0 ? `<span class="booking-indicator">✅ ${paidCount} paid</span>` : ''}
+                                    ${isPast && bookedCount === 0 ? '<span style="font-size:11px; color:var(--text-secondary);">Closed</span>' : bookedCount>0 ? `<span class="booking-count">${bookedCount} hr${bookedCount>1?'s':''} booked</span>` : '<span style="font-size:11px; color:var(--success-color);">Free</span>'}
+                                    ${paidCount>0 ? `<span class="booking-indicator">✅ ${paidCount} hr${paidCount>1?'s':''} paid</span>` : ''}
                                 </div>`;
                     dayCounter++;
                 } else { 
@@ -2196,14 +3931,29 @@
             body.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-secondary);">No bookings for this day.</div>';
         } else {
             body.innerHTML = dayBookings.map((b, i) => {
-                const time = b.bookingTime.split('T')[1]?.substring(0,5) || '';
-                const h = parseInt(time.split(':')[0]);
+                const rawTime = b.bookingTime.split('T')[1]?.substring(0,5) || '';
+                const time = formatTime12(rawTime);
+                const h = parseInt(rawTime.split(':')[0]);
                 const partition = (h >= 6 && h < 18) ? '🌞 Day' : '🌙 Night';
+                // Show every hour this booking covers as its own badge, so
+                // it's obvious at a glance which exact hours are taken -
+                // even when they're not back-to-back.
+                const hoursList = Array.isArray(b.hours) && b.hours.length ? b.hours : (() => {
+                    const arr = []; const startH = parseInt(rawTime.split(':')[0], 10);
+                    for (let d = 0; d < (b.duration || 1); d++) arr.push(String((startH + d) % 24).padStart(2,'0') + ':00');
+                    return arr;
+                })();
+                const hourBadges = hoursList.map(hr => {
+                    const hn = parseInt(hr.split(':')[0], 10);
+                    const isNight = hn >= 18 || hn < 6;
+                    return `<span style="display:inline-block; padding:3px 8px; margin:2px; border-radius:12px; font-size:11px; font-weight:bold; background:${isNight ? 'rgba(52,73,94,0.6)' : 'rgba(241,196,15,0.25)'}; color:${isNight ? '#aab7c4' : '#f1c40f'}; border:1px solid ${isNight ? '#455a70' : '#f1c40f55'};">${formatTime12(hr)} ${isNight ? '🌙' : '🌞'}</span>`;
+                }).join('');
                 return `<div style="padding:12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <div>
                         <div style="font-weight:bold; color:var(--highlight-yellow);">${time} &nbsp; <span style="font-size:12px;">${partition}</span></div>
                         <div style="margin-top:4px;">${b.fullName} &mdash; <em>${b.teamName}</em></div>
                         <div style="font-size:12px; color:var(--text-secondary);">${b.bookingId} &nbsp;|&nbsp; ${b.duration || 1}h &nbsp;|&nbsp; ${settings.currency} ${b.bookingAmount}</div>
+                        <div style="margin-top:6px;">${hourBadges}</div>
                     </div>
                     <span class="${b.verified ? 'badge-paid' : 'badge-unpaid'}">${b.verified ? 'Paid' : 'Unpaid'}</span>
                 </div>`;
@@ -2265,9 +4015,23 @@
             updateLiveBookingStatus();
             updateBookingSlots();
             filterHistory();
+            if (activeTab === 'dues') renderDues();
         }, err => {
             console.error('Cloud sync error:', err);
             addNotification('Cloud sync error - check your internet connection', 'error');
+        });
+    }
+
+    // Realtime cloud listener for the expense log - mirrors listenForBookings()
+    // so both owner phones always see the same running-cost data.
+    function listenForExpenses() {
+        if (!expensesRef) return;
+        expensesRef.onSnapshot(snapshot => {
+            expenses = snapshot.docs.map(doc => doc.data());
+            if (activeTab === 'expenditure') renderExpenditure();
+        }, err => {
+            console.error('Expense cloud sync error:', err);
+            addNotification('Expense cloud sync error - check your internet connection', 'error');
         });
     }
 
@@ -2282,7 +4046,7 @@
         const now = new Date();
         const today = now.toISOString().split('T')[0];
         const currentHour = now.getHours().toString().padStart(2,'0') + ':00';
-        const activeBooking = bookings.find(b => b.bookingTime === `${today}T${currentHour}`);
+        const activeBooking = findBookingForHour(today, currentHour);
         const header = document.getElementById('liveStatusHeader');
         const details = document.getElementById('liveStatusDetails');
         
@@ -2294,7 +4058,7 @@
             details.innerHTML = `
                 <p><strong>Booking ID:</strong> ${activeBooking.bookingId}</p>
                 <p><strong>Customer:</strong> ${activeBooking.fullName} (${activeBooking.teamName})</p>
-                <p><strong>Slot:</strong> ${activeBooking.bookingTime.split('T')[1]} (${activeBooking.duration || 1}h)</p>
+                <p><strong>Slot:</strong> ${formatTime12(activeBooking.bookingTime.split('T')[1])} (${activeBooking.duration || 1}h)</p>
             `;
         } else {
             const future = bookings.filter(b => new Date(b.bookingTime) > now).sort((a,b)=>new Date(a.bookingTime)-new Date(b.bookingTime));
@@ -2305,7 +4069,7 @@
                 header.innerHTML = `<span class="status-dot static-dot"></span>⏳ UPCOMING`;
                 details.innerHTML = `
                     <p><strong>Customer:</strong> ${next.fullName}</p>
-                    <p><strong>Starts:</strong> ${new Date(next.bookingTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</p>
+                    <p><strong>Starts:</strong> ${formatDateTime12(next.bookingTime)}</p>
                 `;
             } else {
                 header.className = 'available';
@@ -2321,16 +4085,34 @@
         if (el) el.innerText = new Date().toLocaleDateString('en-US',{dateStyle:'long'})+' Schedule'; 
     }
     
+    // Finds whichever booking (if any) occupies a specific hour on a specific
+    // date - checking the new `hours` array first, and falling back to the
+    // old consecutive bookingTime+duration range for legacy bookings. This is
+    // what makes multi-hour bookings (2, 3, 4+ hours picked in the New
+    // Booking form) show up correctly on EVERY hour they cover here, not
+    // just their starting hour.
+    function findBookingForHour(dateStr, hourStr) {
+        return bookings.find(b => {
+            if (!b.bookingTime || !b.bookingTime.startsWith(dateStr)) return false;
+            if (Array.isArray(b.hours) && b.hours.length) return b.hours.includes(hourStr);
+            const startHour = parseInt(b.bookingTime.split('T')[1].split(':')[0], 10);
+            const dur = b.duration || 1;
+            for (let d = 0; d < dur; d++) {
+                if (String((startHour + d) % 24).padStart(2, '0') + ':00' === hourStr) return true;
+            }
+            return false;
+        });
+    }
+
     function updateScheduleBookmark() {
         let list = document.getElementById('scheduleList'); 
         if (!list) return;
         list.innerHTML = ''; 
         let today = new Date().toISOString().split('T')[0]; 
-        let todaysBookings = bookings.filter(b=>b.bookingTime && b.bookingTime.startsWith(today));
         
         for (let i=0;i<24;i++) {
             let hour = i.toString().padStart(2,'0')+':00'; 
-            let b = todaysBookings.find(x=>x.bookingTime && x.bookingTime.includes('T'+hour));
+            let b = findBookingForHour(today, hour);
             let d = document.createElement('div'); 
             d.className = 'schedule-slot '+(b?'booked':'free');
             let startHour12 = i%12||12, ap = i<12?'AM':'PM';
@@ -2343,20 +4125,36 @@
     function showReceiptModal(b) {
         document.getElementById('receiptTitle').textContent = b.verified ? '✅ Booking Confirmed!' : '⏳ Pending Payment';
         document.getElementById('receiptIcon').className = 'receipt-icon ' + (b.verified ? 'success' : 'pending');
+        document.getElementById('receiptIcon').textContent = b.verified ? '✓' : '⏳';
         document.getElementById('receiptBookingId').textContent = b.bookingId;
         document.getElementById('receiptNameAndTeam').textContent = `${b.fullName} (${b.teamName})`;
         document.getElementById('receiptContact').textContent = b.contactNumber;
-        document.getElementById('receiptBookingTime').textContent = new Date(b.bookingTime).toLocaleString();
+        document.getElementById('receiptBookingTime').textContent = formatDateTime12(b.bookingTime);
         // Fix: fill partition field
         const h = new Date(b.bookingTime).getHours();
         document.getElementById('receiptTimePartition').textContent = (h >= 6 && h < 18) ? '🌞 Day' : '🌙 Night';
         // Fix: fill duration field
         document.getElementById('receiptDuration').textContent = (b.duration || 1) + ' Hour(s)';
-        document.getElementById('receiptAmount').textContent = `${settings.currency} ${b.bookingAmount}`;
         document.getElementById('receiptPaymentMethod').textContent = b.paymentMethod;
-        document.getElementById('receiptPaymentStatus').textContent = b.verified ? '✅ Paid' : '❌ Unpaid';
+        document.getElementById('receiptPaymentStatus').textContent = b.verified ? '✅ Paid' : (b.amountPaid > 0 ? '🟡 Partial' : '❌ Unpaid');
         // Fix: fill submission date
-        document.getElementById('receiptSubmissionDate').textContent = b.submissionDateTime ? new Date(b.submissionDateTime).toLocaleString() : new Date().toLocaleString();
+        document.getElementById('receiptSubmissionDate').textContent = b.submissionDateTime ? formatDateTime12(b.submissionDateTime) : formatDateTime12(new Date());
+
+        // Itemized line(s): one row per booked hour if we have the per-hour
+        // breakdown, otherwise a single line for the whole booking.
+        const hours = Array.isArray(b.hours) && b.hours.length ? b.hours : [b.bookingTime.split('T')[1]];
+        const hourAmounts = Array.isArray(b.hourAmounts) && b.hourAmounts.length === hours.length ? b.hourAmounts : hours.map(() => (b.bookingAmount || 0) / hours.length);
+        let itemsHtml = '';
+        hours.forEach((hr, i) => {
+            const hNum = parseInt(hr.split(':')[0], 10);
+            const slotLabel = `${hNum % 12 || 12} ${hNum < 12 ? 'AM' : 'PM'} - ${(hNum + 1) % 12 || 12} ${(hNum + 1) < 12 ? 'AM' : 'PM'} ${(hNum >= 6 && hNum < 18) ? '🌞 Day' : '🌙 Night'}`;
+            itemsHtml += `<tr><td>Hour ${i + 1}</td><td>${slotLabel}</td><td>${settings.currency} ${(hourAmounts[i] || 0).toLocaleString()}</td></tr>`;
+        });
+        document.getElementById('receiptItemsBody').innerHTML = itemsHtml;
+        document.getElementById('receiptSubtotalAmt').textContent = `${settings.currency} ${(b.bookingAmount || 0).toLocaleString()}`;
+        document.getElementById('receiptPaidAmt').textContent = `${settings.currency} ${(b.amountPaid || 0).toLocaleString()}`;
+        document.getElementById('receiptDueAmt').textContent = `${settings.currency} ${(b.amountDue || 0).toLocaleString()}`;
+
         // Fix: show arena logo on receipt if uploaded
         const savedLogo = localStorage.getItem('arenaSavedLogo');
         const logoImg = document.getElementById('receiptLogoImg');
@@ -2364,6 +4162,13 @@
         else if (logoImg) { logoImg.style.display = 'none'; }
         // Update arena name on receipt
         document.getElementById('receiptArenaName').textContent = settings.arenaName || 'THE GLOBAL RUSH ARENA';
+        // Contact line: address / phone / email / website - only shows parts that have been filled in
+        const contactParts = [];
+        if (settings.arenaAddress) contactParts.push(`📍 ${settings.arenaAddress}`);
+        if (settings.arenaPhone) contactParts.push(`📞 ${settings.arenaPhone}`);
+        if (settings.arenaEmail) contactParts.push(`✉️ ${settings.arenaEmail}`);
+        if (settings.arenaWebsite) contactParts.push(`🌐 ${settings.arenaWebsite}`);
+        document.getElementById('receiptArenaContact').innerHTML = contactParts.map(p => `<span>${p}</span>`).join('');
         document.getElementById('receiptModal').style.display = 'block';
     }
 
@@ -2378,18 +4183,19 @@
         const id = document.getElementById('receiptBookingId').textContent;
         const nameTeam = document.getElementById('receiptNameAndTeam').textContent;
         const slot = document.getElementById('receiptBookingTime').textContent;
-        const amount = document.getElementById('receiptAmount').textContent;
+        const amount = document.getElementById('receiptSubtotalAmt').textContent;
+        const due = document.getElementById('receiptDueAmt').textContent;
         const status = document.getElementById('receiptPaymentStatus').textContent;
         const duration = document.getElementById('receiptDuration').textContent;
         const arenaName = document.getElementById('receiptArenaName').textContent;
-        const msg = `🏟️ *${arenaName}*\n━━━━━━━━━━━━━━\n✅ *Booking Receipt*\n\n📋 ID: ${id}\n👤 ${nameTeam}\n📅 Slot: ${slot}\n⏱️ Duration: ${duration}\n💰 Amount: ${amount}\n💳 Status: ${status}\n\nThank you for booking!`;
+        const msg = `🏟️ *${arenaName}*\n━━━━━━━━━━━━━━\n✅ *Booking Receipt*\n\n📋 ID: ${id}\n👤 ${nameTeam}\n📅 Slot: ${slot}\n⏱️ Duration: ${duration}\n💰 Amount: ${amount}\n⚖️ Due: ${due}\n💳 Status: ${status}\n\nThank you for booking!`;
         window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     }
     function copyReceiptText() {
         const id = document.getElementById('receiptBookingId').textContent;
         const nameTeam = document.getElementById('receiptNameAndTeam').textContent;
         const slot = document.getElementById('receiptBookingTime').textContent;
-        const amount = document.getElementById('receiptAmount').textContent;
+        const amount = document.getElementById('receiptSubtotalAmt').textContent;
         const status = document.getElementById('receiptPaymentStatus').textContent;
         const arenaName = document.getElementById('receiptArenaName').textContent;
         const msg = `${arenaName} | Booking Receipt\nID: ${id}\n${nameTeam}\nSlot: ${slot}\nAmount: ${amount}\nStatus: ${status}`;
