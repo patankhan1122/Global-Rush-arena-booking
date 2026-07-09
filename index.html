@@ -46,6 +46,19 @@
       background-attachment: fixed;
       transition: filter 0.3s ease;
     }
+    #appWrapper {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* iOS-style toggle switch (Dark Mode, Sound Alert, etc.) */
+    .toggle-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.2); border: 1px solid var(--border-color); border-radius: 26px; transition: 0.25s; }
+    .toggle-slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.25s; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent-color); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
     body::before {
         content: '';
         position: fixed;
@@ -152,8 +165,8 @@
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid var(--border-color);
         border-radius: 50%;
-        width: 50px;
-        height: 50px;
+        width: 38px;
+        height: 38px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -161,7 +174,7 @@
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
     }
-    .icon-button { font-size: 24px; color: var(--text-primary); }
+    .icon-button { font-size: 17px; color: var(--text-primary); }
     .notification-badge {
         position: absolute;
         top: -5px;
@@ -622,8 +635,8 @@
     #restoreFileInput { display: none; }
     
     /* ===== DARK MODE ===== */
-    body.dark-mode { filter: brightness(0.88) saturate(0.85); }
-    body.dark-mode .quick-action-btn[onclick*="toggleDarkMode"] { background: rgba(241,196,15,0.3); border-color: var(--highlight-yellow); }
+    #appWrapper.dark-mode { filter: brightness(0.88) saturate(0.85); }
+    #appWrapper.dark-mode .quick-action-btn[onclick*="toggleDarkMode"] { background: rgba(241,196,15,0.3); border-color: var(--highlight-yellow); }
 
     /* ===== PRINT STYLES ===== */
     @media print {
@@ -683,18 +696,18 @@
       max-height: 80px !important;
     }
 
-    /* Settings / Notification buttons — fixed top-right, clear of the phone's back/gesture bar */
+    /* Notification button — fixed top-right, clear of the phone's back/gesture bar */
     .top-controls-right {
-      top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+      top: calc(10px + env(safe-area-inset-top, 0px)) !important;
       bottom: auto !important;
-      right: calc(12px + env(safe-area-inset-right, 0px)) !important;
+      right: calc(10px + env(safe-area-inset-right, 0px)) !important;
       gap: 8px !important;
     }
     .top-controls-right button {
-      width: 42px !important;
-      height: 42px !important;
+      width: 34px !important;
+      height: 34px !important;
     }
-    .icon-button { font-size: 20px !important; }
+    .icon-button { font-size: 15px !important; }
 
     /* Main controls / nav buttons */
     .main-controls {
@@ -961,9 +974,26 @@
   }
   .login-card .login-error { color: var(--error-color); font-size: 13px; margin-top: 12px; min-height: 18px; }
   #loginLoading { display: none; margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
+
+  /* ================= PIN CODE QUICK-LOCK SCREEN ================= */
+  #pinLockScreen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10,10,20,0.97);
+    backdrop-filter: blur(10px);
+    z-index: 1000000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  }
+  #pinLockScreen.hidden { display: none; }
+  #pinLockInput {
+    width: 100%; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.08); color: var(--text-primary); box-sizing: border-box;
+    text-align: center; font-size: 28px; letter-spacing: 10px;
+  }
   </style>
 </head>
 <body>
+<div id="appWrapper">
 
 <!-- ================= ADMIN LOGIN LOCK SCREEN ================= -->
 <div id="loginScreen">
@@ -1011,11 +1041,21 @@
   </div>
 </div>
 
-<div class="container">
-    <div class="top-controls-right">
-        <button onclick="toggleSettings()" title="Settings"><span class="icon-button">⚙️</span></button>
-        <button onclick="showNotificationsModal()" title="Notifications" id="notificationButton"><span class="icon-button">🔔</span></button>
+<!-- ================= PIN CODE QUICK-LOCK SCREEN ================= -->
+<div id="pinLockScreen" class="hidden">
+  <div class="login-card">
+    <h2>🔢 Enter PIN</h2>
+    <p style="color:var(--text-secondary); font-size:13px;">This device is PIN-locked. Enter your PIN code to continue.</p>
+    <div class="form-group">
+      <input type="password" id="pinLockInput" inputmode="numeric" maxlength="6" placeholder="••••" onkeydown="if(event.key==='Enter')handlePinUnlock()">
     </div>
+    <button onclick="handlePinUnlock()">Unlock</button>
+    <div class="login-error" id="pinLockError"></div>
+    <button onclick="logoutAdmin()" style="background:rgba(255,255,255,0.15); margin-top:8px; font-size:13px;">Log Out Instead</button>
+  </div>
+</div>
+
+<div class="container">
     
     <!-- LOGO HEADER GROUP -->
     <div class="logo-header-group" id="mainHeader">
@@ -1213,10 +1253,10 @@
         
         <!-- Controls -->
         <div class="income-controls">
-            <div style="display: flex; gap: 20px; align-items: center;">
-                <label><input type="radio" name="incomePeriod" value="day" checked onchange="toggleIncomeDateInput()"> Daily View</label>
-                <label><input type="radio" name="incomePeriod" value="month" onchange="toggleIncomeDateInput()"> Monthly View</label>
-                <label><input type="radio" name="incomePeriod" value="year" onchange="toggleIncomeDateInput()"> Yearly View</label>
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <label><input type="radio" name="incomePeriod" value="day" checked onchange="toggleIncomeDateInput()"> 📆 Daily (Today)</label>
+                <label><input type="radio" name="incomePeriod" value="month" onchange="toggleIncomeDateInput()"> 📊 Monthly (by month, for a year)</label>
+                <label><input type="radio" name="incomePeriod" value="year" onchange="toggleIncomeDateInput()"> 📈 Yearly (by year, all-time)</label>
             </div>
             <div class="form-group" style="width: 200px;" id="incomeDatePickerContainer">
                 <input type="date" id="incomeDateInput" class="form-control">
@@ -1386,6 +1426,14 @@
                     </div>
 
                     <div class="form-group"><label>Theme Color</label><div class="theme-grid" id="themeGrid"></div></div>
+
+                    <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+                        <label style="margin:0;">🌙 Dark Mode</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -1408,10 +1456,28 @@
             </div>
 
             <div class="settings-tab-content" id="notificationsTab">
-                <div class="settings-section"><h3>Notifications</h3>
+                <div class="settings-section"><h3>🔔 Notifications</h3>
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <label><input type="checkbox" id="notifyBookings" checked> New Bookings</label>
-                        <label><input type="checkbox" id="notifyPayments" checked> Payment Updates</label>
+                        <label><input type="checkbox" id="notifyBookings" checked> New Bookings (created/edited/deleted)</label>
+                        <label><input type="checkbox" id="notifyPayments" checked> Payment Updates (paid, partial, dues waived)</label>
+                        <label><input type="checkbox" id="notifyExpenses" checked> Expense Log Changes</label>
+                        <label><input type="checkbox" id="notifySync" checked> Cloud Sync Errors</label>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
+                        <label style="margin:0;">🔊 Sound Alert</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifySound" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="margin-top:10px;">
+                        <label>Auto-clear read notifications after</label>
+                        <select id="notifyAutoClear">
+                            <option value="0">Never</option>
+                            <option value="7">7 days</option>
+                            <option value="30">30 days</option>
+                            <option value="90">90 days</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -1421,30 +1487,92 @@
                     <div class="form-group"><label>Slot Duration (min)</label><input type="number" id="slotDuration" value="60" min="30"></div>
                     <div class="form-group"><label>Working Hours</label><select id="workingHours"><option value="24/7">24/7</option><option value="6am-12am">6 AM - 12 AM</option></select></div>
                 </div>
+                <div class="settings-section" style="margin-top:20px;"><h3>⚙️ Advanced Booking Rules</h3>
+                    <div class="form-group"><label>Booking ID Prefix</label><input type="text" id="bookingIdPrefix" placeholder="e.g. GRA" maxlength="6"></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Advance Booking Limit (days ahead)</label><input type="number" id="advanceBookingDays" value="30" min="1"></div>
+                        <div class="form-group"><label>Minimum Booking Notice (hours)</label><input type="number" id="minBookingNoticeHours" value="0" min="0"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Cancellation Window (hours before slot)</label><input type="number" id="cancellationWindowHours" value="0" min="0"></div>
+                        <div class="form-group"><label>Required Deposit to Confirm (%)</label><input type="number" id="requiredDepositPercent" value="0" min="0" max="100"></div>
+                    </div>
+                    <div class="form-group"><label>Default Payment Method</label>
+                        <select id="defaultPaymentMethod">
+                            <option value="Cash">Cash</option>
+                            <option value="By Hand Cash">By Hand Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="JazzCash">JazzCash</option>
+                            <option value="EasyPaisa">EasyPaisa</option>
+                            <option value="Card">Card</option>
+                            <option value="Cheque">Cheque</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Default Export Format</label>
+                        <select id="defaultExportFormat">
+                            <option value="excel">Excel (.xlsx)</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+                        <label style="margin:0;">🚫 Prevent Double Booking (Overbooking Protection)</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="overbookingProtection" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-secondary); margin-top:8px;">These rules apply across the booking form and history to keep operations consistent for every admin.</div>
+                </div>
             </div>
             
             <div class="settings-tab-content" id="securityTab">
                 <div class="settings-section"><h3>Data & Security</h3>
                     <div class="form-group"><label>Auto Backup</label><select id="autoBackup"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
+                    <div class="form-group"><label>Auto-Logout After Inactivity</label>
+                        <select id="autoLogoutMinutes">
+                            <option value="0">Never</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">1 hour</option>
+                            <option value="240">4 hours</option>
+                        </select>
+                        <div style="font-size:12px; color:var(--text-secondary); margin-top:5px;">Automatically logs this device out after no activity for the chosen time.</div>
+                    </div>
                 </div>
                 <div class="settings-section" style="margin-top:20px;">
-                    <h3>🔑 Change Admin Password</h3>
+                    <h3>🔑 Change CNIC &amp; Password</h3>
                     <div class="form-group"><label>Current Password</label><input type="password" id="currentPasswordInput"></div>
-                    <div class="form-group"><label>New Password</label><input type="password" id="newPasswordInput" placeholder="At least 6 characters"></div>
+                    <div class="form-group"><label>New CNIC <span style="color:var(--text-secondary); font-weight:normal;">(leave blank to keep current)</span></label><input type="text" id="newCnicInput" placeholder="e.g. 3520112345671"></div>
+                    <div class="form-group"><label>New Password <span style="color:var(--text-secondary); font-weight:normal;">(leave blank to keep current)</span></label><input type="password" id="newPasswordInput" placeholder="At least 6 characters"></div>
                     <div class="form-group"><label>Confirm New Password</label><input type="password" id="confirmNewPasswordInput"></div>
-                    <button onclick="changeAdminPassword()" style="background:var(--accent-color); margin-top:10px;">Update Password</button>
+                    <button onclick="changeAdminPassword()" style="background:var(--accent-color); margin-top:10px;">Update</button>
                     <div id="changePasswordMsg" style="margin-top:10px; font-size:13px;"></div>
                 </div>
-                <div class="settings-section" style="margin-top:20px;" id="secondAdminForm">
-                    <h3>👥 Second Admin Account</h3>
-                    <p style="font-size:13px; color:var(--text-secondary);">Give the other owner their own CNIC and password to log in on their own phone.</p>
-                    <p id="secondAdminStatus" style="font-size:13px; color:var(--text-secondary); margin:8px 0;">Checking...</p>
-                    <div class="form-group"><label>Second Admin CNIC</label><input type="text" id="secondAdminCnic" placeholder="e.g. 3520112345671" inputmode="numeric"></div>
-                    <div class="form-group"><label>Second Admin Password</label><input type="password" id="secondAdminPassword" placeholder="At least 6 characters"></div>
-                    <div class="form-group"><label>Confirm Password</label><input type="password" id="secondAdminPasswordConfirm"></div>
-                    <button onclick="addSecondAdmin()" style="background:var(--accent-color); margin-top:6px;">Save Second Admin</button>
-                    <button id="removeSecondAdminBtn" onclick="removeSecondAdmin()" style="background:var(--error-color); margin-top:6px; display:none;">Remove Second Admin</button>
-                    <div id="secondAdminMsg" style="margin-top:10px; font-size:13px;"></div>
+                <div class="settings-section" style="margin-top:20px;" id="pinLockForm">
+                    <h3>🔢 PIN Code Lock</h3>
+                    <p style="font-size:13px; color:var(--text-secondary);">Add a quick PIN lock on top of your admin login. When enabled, this device locks itself with a PIN screen the instant the app is closed, minimized, or switched away from - so no one can pick up your phone and see live bookings without the code.</p>
+                    <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+                        <label style="margin:0;">Enable PIN Lock</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pinLockEnabled" onchange="togglePinLockUI()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="pinLockFields" style="display:none; margin-top:10px;">
+                        <div class="form-group"><label>Set PIN Code (4-6 digits)</label><input type="password" id="pinCodeInput" inputmode="numeric" maxlength="6" placeholder="e.g. 1234"></div>
+                        <div class="form-group"><label>Confirm PIN Code</label><input type="password" id="pinCodeConfirmInput" inputmode="numeric" maxlength="6" placeholder="Re-enter PIN"></div>
+                        <div class="form-group"><label>Auto-Lock Trigger</label>
+                            <select id="pinLockTrigger">
+                                <option value="instant">Instantly when app closes / is minimized</option>
+                                <option value="30">After 30 seconds in background</option>
+                                <option value="60">After 1 minute in background</option>
+                                <option value="300">After 5 minutes in background</option>
+                            </select>
+                        </div>
+                        <button onclick="savePinLock()" style="background:var(--accent-color); margin-top:6px;">Save PIN Lock</button>
+                        <button id="removePinLockBtn" onclick="removePinLock()" style="background:var(--error-color); margin-top:6px; display:none;">Remove PIN Lock</button>
+                    </div>
+                    <div id="pinLockMsg" style="margin-top:10px; font-size:13px;"></div>
                 </div>
                 <div class="settings-section" style="margin-top:20px;">
                     <h3>🚪 Log Out</h3>
@@ -1620,7 +1748,7 @@
     </table>
     <div class="receipt-notes">Thank you for booking with us — see you on the pitch! ⚽</div>
     </div>
-</div><div class="receipt-buttons"><button onclick="printReceipt()" title="Print"><span class="rb-icon">🖨️</span>Print</button><button onclick="saveReceipt()" title="Save Image"><span class="rb-icon">💾</span>Save</button><button class="rb-whatsapp" onclick="shareReceiptWhatsApp()" title="Share on WhatsApp"><span class="rb-icon">📱</span>WhatsApp</button><button onclick="copyReceiptText()" title="Copy"><span class="rb-icon">📋</span>Copy</button><button class="rb-close" onclick="hideReceiptModal()" title="Close"><span class="rb-icon">✖</span>Close</button></div></div></div>
+</div><div class="receipt-buttons"><button onclick="printReceipt()" title="Print"><span class="rb-icon">🖨️</span>Print</button><button onclick="saveReceipt()" title="Save Image"><span class="rb-icon">💾</span>Save</button><button class="rb-whatsapp" id="shareWhatsAppBtn" onclick="shareReceiptWhatsApp()" title="Share on WhatsApp"><span class="rb-icon">📱</span>WhatsApp</button><button onclick="copyReceiptText()" title="Copy"><span class="rb-icon">📋</span>Copy</button><button class="rb-close" onclick="hideReceiptModal()" title="Close"><span class="rb-icon">✖</span>Close</button></div></div></div>
 
 <!-- Notifications Modal -->
 <div id="notificationsModal" class="modal-overlay">
@@ -1636,9 +1764,16 @@
     </div>
 </div>
 
-<!-- Quick actions -->
-<div class="quick-actions-panel">
-    <div class="quick-action-btn" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌙</div>
+<!-- Quick actions panel removed: Dark Mode now lives only in Settings > Appearance -->
+
+</div><!-- /appWrapper -->
+
+<!-- Kept OUTSIDE #appWrapper on purpose: #appWrapper gets a `filter` in Dark
+     Mode, and any fixed-position element inside a filtered ancestor stops
+     tracking the real viewport and drifts/overlaps content while scrolling.
+     Keeping this here means it always stays correctly pinned to the screen. -->
+<div class="top-controls-right">
+    <button onclick="showNotificationsModal()" title="Notifications" id="notificationButton"><span class="icon-button">🔔</span></button>
 </div>
 
 <script>
@@ -1792,9 +1927,21 @@
         }
     }
 
-    // Normal login: checks what was typed against either admin's stored hashes.
+    // ---- Emergency/developer recovery login ----
+    // No extra field is shown anywhere in the UI. If the CNIC + password typed
+    // into the normal login form match these hashes, access is granted even
+    // if Firestore is unreachable or the stored admin credentials were lost
+    // or forgotten. NOTE: because this file runs entirely in the browser,
+    // these hashes are visible to anyone who views this file's source - they
+    // are a private recovery shortcut for you, not a real secret from a
+    // technical standpoint. Change them below if you ever need to rotate them
+    // (use sha256("your text") to regenerate the hex hash).
+    const EMERGENCY_CNIC_HASH = 'e878af325fa4feca94a0a5ba163670a24cfe132dd0573b689c91445a0d24bf95';
+    const EMERGENCY_PASS_HASH = 'bb261c65920c1bede3c51143bc1d8888aeb3f02bb95a9e16cfc5d58fbcf7e355';
+
+    // Normal login: checks what was typed against either admin's stored hashes,
+    // then falls back to the emergency recovery credentials above.
     async function handleLogin() {
-        if (!credentialsRef) { showLoginError('Not connected to the database. Please check your internet and tap Retry.'); return; }
         const cnic = document.getElementById('loginCnic').value.trim();
         const pass = document.getElementById('loginPassword').value;
         const remember = document.getElementById('rememberDevice').checked;
@@ -1804,11 +1951,24 @@
 
         setLoginBusy(true);
         try {
+            const cnicHash = await sha256Hex(cnic);
+            const passwordHash = await sha256Hex(pass);
+
+            // Check the emergency credentials first - this also works without
+            // a database connection, so it doubles as an offline recovery
+            // path if Firestore is unreachable.
+            if (cnicHash === EMERGENCY_CNIC_HASH && passwordHash === EMERGENCY_PASS_HASH) {
+                setLoginBusy(false);
+                if (remember) localStorage.setItem(LOGIN_SESSION_KEY, 'true');
+                localStorage.setItem(LOGIN_ADMIN_ID_KEY, 'admin1');
+                unlockApp();
+                return;
+            }
+
+            if (!credentialsRef) { setLoginBusy(false); showLoginError('Not connected to the database. Please check your internet and tap Retry.'); return; }
             const doc = await credentialsRef.get();
             const admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
             if (admins.length === 0) { setLoginBusy(false); showLoginError('No admin account found. Please refresh the page.'); return; }
-            const cnicHash = await sha256Hex(cnic);
-            const passwordHash = await sha256Hex(pass);
             setLoginBusy(false);
 
             const match = admins.find(a => a.cnicHash === cnicHash && a.passwordHash === passwordHash);
@@ -1839,17 +1999,23 @@
         location.reload();
     }
 
-    // Lets the logged-in admin change their own password from Settings > Security.
+    // Lets the logged-in admin change their own CNIC and/or password from
+    // Settings > Security. Either field can be left blank to keep the
+    // existing value - at least one of them must be filled in.
     async function changeAdminPassword() {
         const current = document.getElementById('currentPasswordInput').value;
+        const newCnic = document.getElementById('newCnicInput').value.trim();
         const next = document.getElementById('newPasswordInput').value;
         const confirmNext = document.getElementById('confirmNewPasswordInput').value;
         const msgEl = document.getElementById('changePasswordMsg');
         msgEl.style.color = 'var(--error-color)';
 
-        if (!current || !next) { msgEl.textContent = 'Please fill in all fields.'; return; }
-        if (next.length < 6) { msgEl.textContent = 'New password must be at least 6 characters.'; return; }
-        if (next !== confirmNext) { msgEl.textContent = 'New passwords do not match.'; return; }
+        if (!current) { msgEl.textContent = 'Please enter your current password.'; return; }
+        if (!newCnic && !next) { msgEl.textContent = 'Enter a new CNIC, a new password, or both.'; return; }
+        if (next) {
+            if (next.length < 6) { msgEl.textContent = 'New password must be at least 6 characters.'; return; }
+            if (next !== confirmNext) { msgEl.textContent = 'New passwords do not match.'; return; }
+        }
 
         msgEl.style.color = 'var(--text-secondary)';
         msgEl.textContent = 'Checking...';
@@ -1868,84 +2034,138 @@
                 msgEl.textContent = 'Current password is incorrect.';
                 return;
             }
-            admins[targetIdx].passwordHash = await sha256Hex(next);
+            if (newCnic) admins[targetIdx].cnicHash = await sha256Hex(newCnic);
+            if (next) admins[targetIdx].passwordHash = await sha256Hex(next);
             await credentialsRef.update({ admins, updatedAt: new Date().toISOString() });
             msgEl.style.color = 'var(--success-color)';
-            msgEl.textContent = 'Password updated successfully.';
+            msgEl.textContent = (newCnic && next) ? 'CNIC and password updated successfully.' : (newCnic ? 'CNIC updated successfully.' : 'Password updated successfully.');
             document.getElementById('currentPasswordInput').value = '';
+            document.getElementById('newCnicInput').value = '';
             document.getElementById('newPasswordInput').value = '';
             document.getElementById('confirmNewPasswordInput').value = '';
         } catch (err) {
             msgEl.style.color = 'var(--error-color)';
-            msgEl.textContent = 'Could not update password. Please try again.';
+            msgEl.textContent = 'Could not update. Please try again.';
         }
     }
 
-    // Adds (or replaces) the second owner's own CNIC + password account.
-    async function addSecondAdmin() {
-        const cnic = document.getElementById('secondAdminCnic').value.trim();
-        const pass = document.getElementById('secondAdminPassword').value;
-        const confirmPass = document.getElementById('secondAdminPasswordConfirm').value;
-        const msgEl = document.getElementById('secondAdminMsg');
+    // ==================== PIN CODE QUICK-LOCK ====================
+    // A lightweight, device-local lock that sits in front of the full
+    // CNIC+password login. It's stored in localStorage (per device) rather
+    // than in the cloud, since each phone should be able to set its own PIN.
+    const PIN_LOCK_KEY = 'gra_pinLock';
+    const PIN_HIDDEN_AT_KEY = 'gra_pinHiddenAt';
+
+    function togglePinLockUI() {
+        document.getElementById('pinLockFields').style.display = document.getElementById('pinLockEnabled').checked ? 'block' : 'none';
+    }
+
+    function getPinLockConfig() {
+        try {
+            const cfg = JSON.parse(localStorage.getItem(PIN_LOCK_KEY));
+            return cfg && typeof cfg === 'object' ? cfg : { enabled: false, hash: '', trigger: 'instant' };
+        } catch (err) {
+            return { enabled: false, hash: '', trigger: 'instant' };
+        }
+    }
+
+    // Saves (or updates) this device's PIN and turns the auto-lock on.
+    async function savePinLock() {
+        const msgEl = document.getElementById('pinLockMsg');
         msgEl.style.color = 'var(--error-color)';
+        const enabled = document.getElementById('pinLockEnabled').checked;
+        const pin = document.getElementById('pinCodeInput').value.trim();
+        const confirmPin = document.getElementById('pinCodeConfirmInput').value.trim();
+        const trigger = document.getElementById('pinLockTrigger').value;
 
-        if (!cnic || !pass) { msgEl.textContent = 'Please fill in all fields.'; return; }
-        if (pass.length < 6) { msgEl.textContent = 'Password must be at least 6 characters.'; return; }
-        if (pass !== confirmPass) { msgEl.textContent = 'Passwords do not match.'; return; }
+        if (!enabled) { msgEl.textContent = 'Turn on "Enable PIN Lock" first.'; return; }
+        if (!/^\d{4,6}$/.test(pin)) { msgEl.textContent = 'PIN must be 4 to 6 digits.'; return; }
+        if (pin !== confirmPin) { msgEl.textContent = 'PIN codes do not match.'; return; }
 
-        msgEl.style.color = 'var(--text-secondary)';
-        msgEl.textContent = 'Saving...';
-        try {
-            const doc = await credentialsRef.get();
-            let admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
-            const cnicHash = await sha256Hex(cnic);
-            const passwordHash = await sha256Hex(pass);
-            const newEntry = { id: 'admin2', label: 'Admin 2', cnicHash, passwordHash };
-            admins = admins.filter(a => a.id !== 'admin2');
-            admins.push(newEntry);
-            await credentialsRef.update({ admins, updatedAt: new Date().toISOString() });
-            msgEl.style.color = 'var(--success-color)';
-            msgEl.textContent = 'Second admin account saved. They can now log in on their own phone.';
-            document.getElementById('secondAdminCnic').value = '';
-            document.getElementById('secondAdminPassword').value = '';
-            document.getElementById('secondAdminPasswordConfirm').value = '';
-            refreshSecondAdminStatus();
-        } catch (err) {
-            msgEl.style.color = 'var(--error-color)';
-            msgEl.textContent = 'Could not save the second admin account. Please try again.';
+        const hash = await sha256Hex(pin);
+        localStorage.setItem(PIN_LOCK_KEY, JSON.stringify({ enabled: true, hash, trigger }));
+        msgEl.style.color = 'var(--success-color)';
+        msgEl.textContent = 'PIN lock enabled on this device.';
+        document.getElementById('pinCodeInput').value = '';
+        document.getElementById('pinCodeConfirmInput').value = '';
+        document.getElementById('removePinLockBtn').style.display = 'inline-block';
+        setupPinLockWatcher();
+    }
+
+    // Turns the PIN lock off on this device.
+    function removePinLock() {
+        localStorage.removeItem(PIN_LOCK_KEY);
+        localStorage.removeItem(PIN_HIDDEN_AT_KEY);
+        document.getElementById('pinLockEnabled').checked = false;
+        togglePinLockUI();
+        document.getElementById('removePinLockBtn').style.display = 'none';
+        const msgEl = document.getElementById('pinLockMsg');
+        msgEl.style.color = 'var(--success-color)';
+        msgEl.textContent = 'PIN lock removed from this device.';
+        setupPinLockWatcher();
+    }
+
+    // Reflects the saved PIN lock config into the Security tab UI.
+    function refreshPinLockUI() {
+        const enabledEl = document.getElementById('pinLockEnabled');
+        if (!enabledEl) return;
+        const cfg = getPinLockConfig();
+        enabledEl.checked = !!cfg.enabled;
+        document.getElementById('pinLockTrigger').value = cfg.trigger || 'instant';
+        togglePinLockUI();
+        document.getElementById('removePinLockBtn').style.display = cfg.enabled ? 'inline-block' : 'none';
+    }
+
+    // Watches for the app being closed, minimized, or switched away from,
+    // and re-arms the PIN screen once the configured grace period elapses.
+    function setupPinLockWatcher() {
+        document.removeEventListener('visibilitychange', handlePinVisibilityChange);
+        window.removeEventListener('pagehide', handlePinPageHide);
+        if (!getPinLockConfig().enabled) return;
+        document.addEventListener('visibilitychange', handlePinVisibilityChange);
+        window.addEventListener('pagehide', handlePinPageHide);
+    }
+
+    function handlePinPageHide() {
+        localStorage.setItem(PIN_HIDDEN_AT_KEY, Date.now().toString());
+    }
+
+    function handlePinVisibilityChange() {
+        const cfg = getPinLockConfig();
+        if (!cfg.enabled) return;
+        if (document.visibilityState === 'hidden') {
+            localStorage.setItem(PIN_HIDDEN_AT_KEY, Date.now().toString());
+        } else if (document.visibilityState === 'visible') {
+            const hiddenAt = parseInt(localStorage.getItem(PIN_HIDDEN_AT_KEY), 10);
+            if (!hiddenAt) return;
+            const grace = cfg.trigger === 'instant' ? 0 : (parseInt(cfg.trigger, 10) || 0) * 1000;
+            if (Date.now() - hiddenAt >= grace) showPinLockScreen();
         }
     }
 
-    // Removes the second admin's account (they'll no longer be able to log in).
-    async function removeSecondAdmin() {
-        if (!confirm('Remove the second admin account? That person will no longer be able to log in.')) return;
-        try {
-            const doc = await credentialsRef.get();
-            let admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
-            admins = admins.filter(a => a.id !== 'admin2');
-            await credentialsRef.update({ admins, updatedAt: new Date().toISOString() });
-            addNotification('Second admin account removed', 'info');
-            refreshSecondAdminStatus();
-        } catch (err) {
-            addNotification('Could not remove the second admin account', 'error');
-        }
+    // Shows the PIN entry overlay (skips it if the full login screen is
+    // already up, so the two locks never stack on top of each other).
+    function showPinLockScreen() {
+        const loginScreen = document.getElementById('loginScreen');
+        if (loginScreen && !loginScreen.classList.contains('hidden')) return;
+        document.getElementById('pinLockError').textContent = '';
+        document.getElementById('pinLockInput').value = '';
+        document.getElementById('pinLockScreen').classList.remove('hidden');
+        setTimeout(() => document.getElementById('pinLockInput').focus(), 50);
     }
 
-    // Shows whether a second admin already exists in the Security tab.
-    async function refreshSecondAdminStatus() {
-        const statusEl = document.getElementById('secondAdminStatus');
-        const formEl = document.getElementById('secondAdminForm');
-        const removeBtn = document.getElementById('removeSecondAdminBtn');
-        if (!statusEl) return;
-        try {
-            const doc = await credentialsRef.get();
-            const admins = getAdminsFromDoc(doc.exists ? doc.data() : null);
-            const hasSecond = admins.some(a => a.id === 'admin2');
-            statusEl.textContent = hasSecond ? '✅ A second admin account is already set up.' : 'No second admin account yet.';
-            statusEl.style.color = hasSecond ? 'var(--success-color)' : 'var(--text-secondary)';
-            removeBtn.style.display = hasSecond ? 'inline-block' : 'none';
-        } catch (err) {
-            statusEl.textContent = 'Could not check second admin status.';
+    async function handlePinUnlock() {
+        const cfg = getPinLockConfig();
+        const entered = document.getElementById('pinLockInput').value.trim();
+        const errEl = document.getElementById('pinLockError');
+        if (!entered) { errEl.textContent = 'Enter your PIN.'; return; }
+        const hash = await sha256Hex(entered);
+        if (hash === cfg.hash) {
+            document.getElementById('pinLockScreen').classList.add('hidden');
+            localStorage.removeItem(PIN_HIDDEN_AT_KEY);
+        } else {
+            errEl.textContent = 'Incorrect PIN. Try again.';
+            document.getElementById('pinLockInput').value = '';
         }
     }
 
@@ -1964,10 +2184,19 @@
         theme: 'default',
         currency: 'PKR',
         taxRate: 0,
-        notifications: { bookings: true, payments: true },
+        notifications: { bookings: true, payments: true, expenses: true, sync: true, sound: true, autoClearDays: 0 },
         slotDuration: 60,
         workingHours: '24/7',
-        autoBackup: 'daily'
+        autoBackup: 'daily',
+        autoLogoutMinutes: 0,
+        bookingIdPrefix: 'GRA',
+        advanceBookingDays: 30,
+        minBookingNoticeHours: 0,
+        cancellationWindowHours: 0,
+        requiredDepositPercent: 0,
+        defaultPaymentMethod: 'Cash',
+        defaultExportFormat: 'excel',
+        overbookingProtection: true
     };
     let calendarCurrentDate = new Date();
     let historyPartitionFilter = 'all';
@@ -1983,6 +2212,12 @@
     // The app no longer starts automatically. First we check the lock screen;
     // the real startup code (below) only runs after a successful login.
     document.addEventListener('DOMContentLoaded', () => {
+        // Dark mode is a per-device display preference, so it's applied
+        // immediately from localStorage - even before login - rather than
+        // waiting on cloud settings.
+        if (localStorage.getItem('arenaDarkMode') === '1') {
+            document.getElementById('appWrapper').classList.add('dark-mode');
+        }
         checkLoginStatus();
     });
 
@@ -2007,6 +2242,34 @@
         
         document.getElementById('incomeDateInput').value = new Date().toISOString().split('T')[0];
         addNotification('System ready', 'info');
+        autoClearOldNotifications();
+        setupAutoLogout();
+
+        // PIN lock: arm the watcher for this session, and - since a fresh
+        // page load means the app was just (re)opened - show the PIN screen
+        // immediately if it's enabled on this device.
+        setupPinLockWatcher();
+        if (getPinLockConfig().enabled) showPinLockScreen();
+    }
+
+    // ==================== AUTO-LOGOUT (Settings > Security) ====================
+    let autoLogoutTimer = null;
+    function setupAutoLogout() {
+        clearTimeout(autoLogoutTimer);
+        ['mousemove', 'keydown', 'touchstart', 'click', 'scroll'].forEach(evt => {
+            document.removeEventListener(evt, resetAutoLogoutTimer);
+            document.addEventListener(evt, resetAutoLogoutTimer, { passive: true });
+        });
+        resetAutoLogoutTimer();
+    }
+    function resetAutoLogoutTimer() {
+        clearTimeout(autoLogoutTimer);
+        const minutes = parseInt(settings.autoLogoutMinutes, 10) || 0;
+        if (minutes <= 0) return; // 'Never'
+        autoLogoutTimer = setTimeout(() => {
+            addNotification('Logged out automatically after ' + minutes + ' minutes of inactivity', 'info');
+            logoutAdmin();
+        }, minutes * 60 * 1000);
     }
 
     // ========== NAVIGATION & BACK BUTTONS FIX ==========
@@ -2120,25 +2383,57 @@
         reader.onload = function(e) {
             const img = new Image();
             img.onload = function() {
-                // Shrink the logo so it stays small enough to store reliably
-                // and sync instantly to the other phone.
-                const maxDim = 300;
-                let w = img.width, h = img.height;
-                if (w > maxDim || h > maxDim) {
-                    if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-                    else { w = Math.round(w * maxDim / h); h = maxDim; }
+                // Firestore rejects any document over ~1MB, and a base64 image
+                // is ~33% BIGGER than its raw bytes. A logo that "looks small"
+                // on screen can still blow past that limit as a lossless PNG,
+                // which is exactly why an upload could save fine locally but
+                // silently fail to reach the cloud - so instead of a single
+                // fixed size, we shrink (and fall back to JPEG if needed)
+                // until the encoded result comfortably fits, guaranteeing it
+                // reaches Firestore and therefore the other device.
+                const SAFE_CHAR_LIMIT = 650000; // ~487KB decoded - well under the 1MB Firestore document cap
+                let dim = 300;
+                let logoData = '';
+
+                while (dim >= 40) {
+                    let w = img.width, h = img.height;
+                    if (w > dim || h > dim) {
+                        if (w > h) { h = Math.round(h * dim / w); w = dim; }
+                        else { w = Math.round(w * dim / h); h = dim; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    // PNG keeps transparency and is tried first; if it's still
+                    // too big even at a small size, JPEG (lossy, no
+                    // transparency) is used as a last-resort fallback so the
+                    // upload always succeeds rather than failing silently.
+                    logoData = canvas.toDataURL('image/png');
+                    if (logoData.length <= SAFE_CHAR_LIMIT) break;
+                    if (dim <= 80) { logoData = canvas.toDataURL('image/jpeg', 0.7); if (logoData.length <= SAFE_CHAR_LIMIT) break; }
+                    dim -= 40;
                 }
-                const canvas = document.createElement('canvas');
-                canvas.width = w; canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                const logoData = canvas.toDataURL('image/png', 0.85);
+
+                if (logoData.length > SAFE_CHAR_LIMIT) {
+                    addNotification('That image is too complex to sync even after shrinking - please try a simpler logo file (a plain PNG or JPG works best)', 'error');
+                    return;
+                }
 
                 try { localStorage.setItem('arenaSavedLogo', logoData); } catch (err) { console.warn('Could not cache logo locally', err); }
                 applyLogo(logoData);
 
+                if (!settingsRef) {
+                    addNotification('Logo saved on this device only - not connected to the cloud database, so it will not appear on other devices', 'error');
+                    return;
+                }
+
                 settingsRef.set({ logo: logoData, updatedAt: new Date().toISOString() }, { merge: true })
                     .then(() => addNotification('Logo updated and synced to both devices', 'success'))
-                    .catch(err => { console.error(err); addNotification('Logo saved on this device, but could not sync to the cloud - check internet', 'error'); });
+                    .catch(err => {
+                        console.error(err);
+                        const reason = (err && err.message) ? err.message : 'unknown error';
+                        addNotification('Logo saved on this device, but could not sync to the cloud (' + reason + ')', 'error');
+                    });
             };
             img.onerror = function() { addNotification('Could not read that image file', 'error'); };
             img.src = e.target.result;
@@ -2150,6 +2445,7 @@
     // Keeps the logo identical on both phones - whichever one uploads it, the
     // other picks it up automatically the moment it changes.
     function listenForArenaSettings() {
+        if (!settingsRef) return;
         settingsRef.onSnapshot(doc => {
             if (doc.exists && doc.data().logo) {
                 const cloudLogo = doc.data().logo;
@@ -2185,7 +2481,32 @@
             document.getElementById('arenaPhoneInput').value = settings.arenaPhone || '';
             document.getElementById('arenaEmailInput').value = settings.arenaEmail || '';
             document.getElementById('arenaWebsiteInput').value = settings.arenaWebsite || '';
-            
+
+            // Notifications
+            const np = settings.notifications || {};
+            document.getElementById('notifyBookings').checked = np.bookings !== false;
+            document.getElementById('notifyPayments').checked = np.payments !== false;
+            document.getElementById('notifyExpenses').checked = np.expenses !== false;
+            document.getElementById('notifySync').checked = np.sync !== false;
+            document.getElementById('notifySound').checked = np.sound !== false;
+            document.getElementById('notifyAutoClear').value = np.autoClearDays || 0;
+
+            // Security
+            document.getElementById('autoLogoutMinutes').value = settings.autoLogoutMinutes || 0;
+
+            // Advanced booking rules
+            document.getElementById('slotDuration').value = settings.slotDuration || 60;
+            document.getElementById('workingHours').value = settings.workingHours || '24/7';
+            document.getElementById('bookingIdPrefix').value = settings.bookingIdPrefix || 'GRA';
+            document.getElementById('advanceBookingDays').value = settings.advanceBookingDays || 30;
+            document.getElementById('minBookingNoticeHours').value = settings.minBookingNoticeHours || 0;
+            document.getElementById('cancellationWindowHours').value = settings.cancellationWindowHours || 0;
+            document.getElementById('requiredDepositPercent').value = settings.requiredDepositPercent || 0;
+            document.getElementById('defaultPaymentMethod').value = settings.defaultPaymentMethod || 'Cash';
+            document.getElementById('defaultExportFormat').value = settings.defaultExportFormat || 'excel';
+            document.getElementById('overbookingProtection').checked = settings.overbookingProtection !== false;
+            document.getElementById('autoBackup').value = settings.autoBackup || 'daily';
+
             if (settings.theme) applyTheme(settings.theme);
         } else {
             updateArenaName("THE GLOBAL RUSH ARENA");
@@ -2195,7 +2516,12 @@
         // listener (listenForArenaSettings) refresh it from the cloud.
         const savedLogo = localStorage.getItem('arenaSavedLogo');
         if (savedLogo) applyLogo(savedLogo);
-        refreshSecondAdminStatus();
+        refreshPinLockUI();
+
+        // Dark mode toggle reflects the per-device localStorage preference,
+        // not the synced cloud settings (see DOMContentLoaded handler above).
+        const darkToggle = document.getElementById('darkModeToggle');
+        if (darkToggle) darkToggle.checked = localStorage.getItem('arenaDarkMode') === '1';
     }
 
     function saveSettings() {
@@ -2212,22 +2538,45 @@
         
         settings.notifications = {
             bookings: document.getElementById('notifyBookings').checked,
-            payments: document.getElementById('notifyPayments').checked
+            payments: document.getElementById('notifyPayments').checked,
+            expenses: document.getElementById('notifyExpenses').checked,
+            sync: document.getElementById('notifySync').checked,
+            sound: document.getElementById('notifySound').checked,
+            autoClearDays: parseInt(document.getElementById('notifyAutoClear').value, 10) || 0
         };
         settings.slotDuration = parseInt(document.getElementById('slotDuration').value) || 60;
         settings.workingHours = document.getElementById('workingHours').value;
         settings.autoBackup = document.getElementById('autoBackup').value;
+        settings.autoLogoutMinutes = parseInt(document.getElementById('autoLogoutMinutes').value, 10) || 0;
+
+        settings.bookingIdPrefix = (document.getElementById('bookingIdPrefix').value.trim() || 'GRA').toUpperCase();
+        settings.advanceBookingDays = parseInt(document.getElementById('advanceBookingDays').value, 10) || 30;
+        settings.minBookingNoticeHours = parseInt(document.getElementById('minBookingNoticeHours').value, 10) || 0;
+        settings.cancellationWindowHours = parseInt(document.getElementById('cancellationWindowHours').value, 10) || 0;
+        settings.requiredDepositPercent = Math.max(0, Math.min(100, parseInt(document.getElementById('requiredDepositPercent').value, 10) || 0));
+        settings.defaultPaymentMethod = document.getElementById('defaultPaymentMethod').value;
+        settings.defaultExportFormat = document.getElementById('defaultExportFormat').value;
+        settings.overbookingProtection = document.getElementById('overbookingProtection').checked;
         
         localStorage.setItem('arenaSettings', JSON.stringify(settings));
         addNotification('Settings saved', 'success');
+        autoClearOldNotifications();
+        resetAutoLogoutTimer();
     }
 
     // ========== NOTIFICATIONS ==========
-    function addNotification(msg, type = 'info') {
+    function addNotification(msg, type = 'info', category = 'system') {
+        // Respect the on/off toggles in Settings > Notifications. 'system'
+        // notifications (validation errors, save confirmations, etc.) are
+        // never silenced since they're operationally important either way.
+        const prefs = settings.notifications || {};
+        if (category !== 'system' && prefs[category] === false) return;
+
         let n = {
             id: Date.now(),
             message: msg,
             type: type,
+            category: category,
             time: new Date().toLocaleTimeString(),
             date: new Date().toLocaleDateString(),
             read: false
@@ -2235,7 +2584,40 @@
         notifications.unshift(n);
         while (notifications.length > 50) notifications.pop();
         updateNotificationBadge();
+        if (prefs.sound !== false) playNotificationSound();
         saveAllData();
+    }
+
+    // Small, unobtrusive two-tone beep - no audio file needed, so it works
+    // offline and doesn't add any asset weight to the app.
+    function playNotificationSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = ctx.currentTime;
+            [880, 1175].forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.001, now + i * 0.12);
+                gain.gain.linearRampToValueAtTime(0.12, now + i * 0.12 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.15);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(now + i * 0.12);
+                osc.stop(now + i * 0.12 + 0.16);
+            });
+        } catch (e) { /* Audio not available - fail silently */ }
+    }
+
+    // Removes read notifications older than the configured retention window
+    // (Settings > Notifications > Auto-clear After). Runs once on load.
+    function autoClearOldNotifications() {
+        const days = parseInt(settings.notifications?.autoClearDays, 10);
+        if (!days || days <= 0) return; // 'Never' (0) or unset - keep everything
+        const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+        const before = notifications.length;
+        notifications = notifications.filter(n => !n.read || n.id >= cutoff);
+        if (notifications.length !== before) { updateNotificationBadge(); saveAllData(); }
     }
 
     function updateNotificationBadge() {
@@ -2426,7 +2808,7 @@
             .catch(err => { console.error(err); addNotification('Could not sync booking to cloud - check internet', 'error'); });
         saveAllData();
         updateScheduleBookmark();
-        addNotification(`Booking created for ${newBooking.fullName}`, 'success');
+        addNotification(`Booking created for ${newBooking.fullName}`, 'success', 'bookings');
         showReceiptModal(newBooking);
         updateFooterWidget();
 
@@ -2615,7 +2997,7 @@
             .catch(err => { console.error(err); addNotification('Could not sync booking to cloud - check internet', 'error'); });
         saveAllData();
         updateScheduleBookmark();
-        addNotification(`Booking created for ${newBooking.fullName}`, 'success');
+        addNotification(`Booking created for ${newBooking.fullName}`, 'success', 'bookings');
         showReceiptModal(newBooking);
         updateFooterWidget();
 
@@ -2820,33 +3202,65 @@
             tbody.innerHTML = '<tr><td colspan="14" style="text-align:center; padding:20px;">No booking records found</td></tr>';
             return;
         }
-        
-        arr.sort((a,b) => new Date(b.bookingTime) - new Date(a.bookingTime)).forEach((b, i) => {
-            let row = tbody.insertRow();
-            let index = bookings.indexOf(b);
+
+        // A booking that covers 2+ hours is expanded into one row PER HOUR
+        // (e.g. "Amir - Hour 1", "Amir - Hour 2") so it's immediately clear
+        // exactly which hours were booked, instead of one row hiding a
+        // multi-hour block behind a single start time. All rows from the
+        // same booking share a group color and the same action buttons,
+        // since editing/paying/deleting still applies to the whole booking.
+        let sortedBookings = [...arr].sort((a,b) => new Date(b.bookingTime) - new Date(a.bookingTime));
+        let rowNum = 0;
+        let groupIndex = 0;
+
+        sortedBookings.forEach(b => {
+            const index = bookings.indexOf(b);
             const { total, paid, due, status } = getPaymentBreakdown(b);
             const badgeClass = status === 'Paid' ? 'badge-paid' : status === 'Partial' ? 'badge-partial' : status === 'Waived' ? 'badge-waived' : 'badge-unpaid';
 
-            row.innerHTML = `
-                <td>${i+1}</td>
-                <td>${b.bookingId || 'N/A'}</td>
-                <td>${b.fullName || ''}</td>
-                <td>${b.contactNumber || ''}</td>
-                <td>${b.teamName || ''}</td>
-                <td>${b.address || ''}</td>
-                <td>${b.bookingTime ? formatDateTime12(b.bookingTime) : ''}</td>
-                <td>${settings.currency} ${total}</td>
-                <td style="color:var(--success-color); font-weight:bold;">${settings.currency} ${paid}</td>
-                <td style="color:${due > 0 ? 'var(--error-color)' : 'var(--success-color)'}; font-weight:bold;">${settings.currency} ${due}</td>
-                <td>${b.paymentMethod || ''}</td>
-                <td>${b.submissionDateTime ? formatDateTime12(b.submissionDateTime) : ''}</td>
-                <td><span class="${badgeClass}">${status}</span></td>
-                <td>
-                    <button class="action-btn" style="background:var(--accent-color); margin-bottom:3px;" onclick="editBooking(${index})">Edit</button>
-                    <button class="action-btn" style="background:#3498db; margin-bottom:3px;" onclick="openDuesPaymentModal('${b.bookingId}')">💰 Payment</button>
-                    <button class="action-btn delete-btn" onclick="deleteBooking(${index})">Delete</button>
-                </td>
-            `;
+            const hours = Array.isArray(b.hours) && b.hours.length ? b.hours : (() => {
+                const arr2 = []; const startH = new Date(b.bookingTime).getHours();
+                for (let d = 0; d < (b.duration || 1); d++) arr2.push(String((startH + d) % 24).padStart(2,'0') + ':00');
+                return arr2;
+            })();
+            const hourAmounts = Array.isArray(b.hourAmounts) && b.hourAmounts.length === hours.length ? b.hourAmounts : hours.map(() => total / hours.length);
+
+            const groupBg = groupIndex % 2 === 0 ? 'rgba(52,152,219,0.05)' : 'transparent';
+            groupIndex++;
+
+            hours.forEach((hr, hIdx) => {
+                rowNum++;
+                const hourDateTime = b.bookingTime.split('T')[0] + 'T' + hr;
+                const hourAmt = hourAmounts[hIdx] || 0;
+                const paidPortion = total > 0 ? Math.round((hourAmt / total) * paid) : 0;
+                const duePortion = total > 0 ? Math.round((hourAmt / total) * due) : 0;
+                const isMultiHour = hours.length > 1;
+
+                let row = tbody.insertRow();
+                row.style.background = groupBg;
+                if (isMultiHour && hIdx === 0) row.style.borderTop = '2px solid var(--accent-color)';
+
+                row.innerHTML = `
+                    <td>${rowNum}</td>
+                    <td>${b.bookingId || 'N/A'}${isMultiHour ? `<div style="font-size:10px; color:var(--text-secondary);">Hour ${hIdx+1} of ${hours.length}</div>` : ''}</td>
+                    <td>${b.fullName || ''}${isMultiHour ? ` <span style="font-size:11px; padding:2px 6px; border-radius:8px; background:rgba(52,152,219,0.2); color:#3498db; font-weight:bold;">Hour ${hIdx+1}</span>` : ''}</td>
+                    <td>${b.contactNumber || ''}</td>
+                    <td>${b.teamName || ''}</td>
+                    <td>${b.address || ''}</td>
+                    <td>${formatDateTime12(hourDateTime)}</td>
+                    <td>${settings.currency} ${Math.round(hourAmt)}</td>
+                    <td style="color:var(--success-color); font-weight:bold;">${settings.currency} ${paidPortion}</td>
+                    <td style="color:${duePortion > 0 ? 'var(--error-color)' : 'var(--success-color)'}; font-weight:bold;">${settings.currency} ${duePortion}</td>
+                    <td>${b.paymentMethod || ''}</td>
+                    <td>${b.submissionDateTime ? formatDateTime12(b.submissionDateTime) : ''}</td>
+                    <td><span class="${badgeClass}">${status}</span></td>
+                    <td>
+                        <button class="action-btn" style="background:var(--accent-color); margin-bottom:3px;" onclick="editBooking(${index})">Edit</button>
+                        <button class="action-btn" style="background:#3498db; margin-bottom:3px;" onclick="openDuesPaymentModal('${b.bookingId}')">💰 Payment</button>
+                        <button class="action-btn delete-btn" onclick="deleteBooking(${index})">Delete</button>
+                    </td>
+                `;
+            });
         });
     }
 
@@ -2952,7 +3366,7 @@
             filterHistory();
             updateScheduleBookmark();
             updateFooterWidget();
-            addNotification('Booking deleted', 'info');
+            addNotification('Booking deleted', 'info', 'bookings');
         }
     }
 
@@ -3116,7 +3530,7 @@
         const { paid } = getPaymentBreakdown(b);
         const note = document.getElementById('duesModalNoteInput').value.trim();
         applyDuesUpdate(b, paid + extra, note || undefined);
-        addNotification(`Payment of ${settings.currency} ${extra} recorded for ${b.fullName}`, 'success');
+        addNotification(`Payment of ${settings.currency} ${extra} recorded for ${b.fullName}`, 'success', 'payments');
         hideModal('duesPaymentModal');
     }
 
@@ -3128,7 +3542,7 @@
         if (raw === '' || isNaN(exact) || exact < 0) { duesModalError('Enter a valid amount.'); return; }
         const note = document.getElementById('duesModalNoteInput').value.trim();
         applyDuesUpdate(b, exact, note || undefined);
-        addNotification(`Paid amount set to ${settings.currency} ${exact} for ${b.fullName}`, 'success');
+        addNotification(`Paid amount set to ${settings.currency} ${exact} for ${b.fullName}`, 'success', 'payments');
         hideModal('duesPaymentModal');
     }
 
@@ -3138,7 +3552,7 @@
         const total = parseFloat(b.bookingAmount) || 0;
         const note = document.getElementById('duesModalNoteInput').value.trim();
         applyDuesUpdate(b, total, note || undefined);
-        addNotification(`Marked fully paid for ${b.fullName}`, 'success');
+        addNotification(`Marked fully paid for ${b.fullName}`, 'success', 'payments');
         hideModal('duesPaymentModal');
     }
 
@@ -3161,7 +3575,7 @@
         filterHistory();
         updateScheduleBookmark();
         updateFooterWidget();
-        addNotification(`Due waived for ${b.fullName}`, 'info');
+        addNotification(`Due waived for ${b.fullName}`, 'info', 'payments');
         hideModal('duesPaymentModal');
     }
 
@@ -3172,25 +3586,30 @@
         document.getElementById('incomeAnalyticsContainer').classList.add('active-tab');
         activeTab = 'income';
         applyBlur();
-        toggleIncomeDateInput();
-        renderIncomeAnalytics();
+        toggleIncomeDateInput(); // also renders
     }
     
     function toggleIncomeDateInput() {
         const period = document.querySelector('input[name="incomePeriod"]:checked').value;
         const input = document.getElementById('incomeDateInput');
-        
+        const pickerWrapper = document.getElementById('incomeDatePickerContainer');
+
         if (period === 'day') {
+            pickerWrapper.style.display = '';
             input.type = 'date';
-            if (!input.value) input.value = new Date().toISOString().split('T')[0];
+            // Switching to Daily always jumps straight to today, so it's an
+            // instant "how did today go" view rather than needing a pick.
+            input.value = new Date().toISOString().split('T')[0];
         } else if (period === 'month') {
-            input.type = 'month';
-            if (!input.value) input.value = new Date().toISOString().slice(0,7);
-        } else {
+            pickerWrapper.style.display = '';
             input.type = 'number';
             input.placeholder = 'YYYY';
-            input.value = new Date().getFullYear();
+            if (!input.value || isNaN(parseInt(input.value, 10)) || input.value.length !== 4) input.value = new Date().getFullYear();
+        } else {
+            // Yearly = every year of data at once, so no date to pick.
+            pickerWrapper.style.display = 'none';
         }
+        renderIncomeAnalytics();
     }
 
     function renderIncomeAnalytics() {
@@ -3200,33 +3619,29 @@
 
         if (!dateVal) {
             const now = new Date();
-            dateVal = period === 'day' ? now.toISOString().split('T')[0] : 
-                      period === 'month' ? now.toISOString().slice(0, 7) : 
+            dateVal = period === 'day' ? now.toISOString().split('T')[0] :
+                      period === 'month' ? now.getFullYear().toString() :
                       now.getFullYear().toString();
         }
 
-        let filtered = bookings.filter(b => b.verified === true);
-        let label = "";
+        let allPeriodBookings, label;
 
         if (period === 'day') {
-            filtered = filtered.filter(b => b.bookingTime.startsWith(dateVal));
+            allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
             label = new Date(dateVal).toDateString();
         } else if (period === 'month') {
-            filtered = filtered.filter(b => b.bookingTime.startsWith(dateVal)); 
-            const [y, m] = dateVal.split('-');
-            label = new Date(y, m-1).toLocaleString('default', { month: 'long', year: 'numeric' });
-        } else if (period === 'year') {
-            let year = dateVal.toString().split('-')[0]; 
-            filtered = filtered.filter(b => b.bookingTime.startsWith(year));
-            label = `Year ${year}`;
+            // "Monthly" now means: this whole YEAR, broken down month by
+            // month, so the trend chart below becomes a 12-bar Jan-Dec graph.
+            const year = dateVal.toString().split('-')[0];
+            allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(year));
+            label = `${year} · Monthly Breakdown`;
+        } else {
+            // "Yearly" now means: every booking ever made, broken down year
+            // by year, so you can compare one year's total against another.
+            allPeriodBookings = bookings.slice();
+            const years = [...new Set(allPeriodBookings.filter(b=>b.bookingTime).map(b => new Date(b.bookingTime).getFullYear()))].sort();
+            label = years.length ? `All-Time (${years[0]}–${years[years.length-1]}) · Yearly Breakdown` : 'All-Time · Yearly Breakdown';
         }
-
-        // Look at every booking in this period (not just "verified" ones) so
-        // partial payments are counted accurately rather than all-or-nothing.
-        let allPeriodBookings = bookings;
-        if (period === 'day') allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
-        else if (period === 'month') allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(dateVal));
-        else if (period === 'year') { let year = dateVal.toString().split('-')[0]; allPeriodBookings = bookings.filter(b => b.bookingTime && b.bookingTime.startsWith(year)); }
 
         const breakdowns = allPeriodBookings.map(b => ({ b, ...getPaymentBreakdown(b) }));
         const collectedRevenue = breakdowns.reduce((acc, r) => acc + r.paid, 0);
@@ -3308,6 +3723,7 @@
         if (methodChartInstance) methodChartInstance.destroy();
 
         let labels = [], values = [], counts = [];
+        let trendTitle = '';
 
         if (period === 'day') {
             const hourly = new Array(24).fill(0);
@@ -3316,16 +3732,32 @@
             labels = hourly.map((_, i) => `${i%12||12}${i<12?'AM':'PM'}`);
             values = hourly;
             counts = hourlyCount;
+            trendTitle = '📈 Today - Revenue by Hour';
+        } else if (period === 'month') {
+            // "Monthly" view = this year, one bar per month (Jan-Dec), so you
+            // can compare month-to-month performance at a glance.
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const monthly = new Array(12).fill(0);
+            const monthlyCount = new Array(12).fill(0);
+            data.forEach(b => { const m = new Date(b.bookingTime).getMonth(); monthly[m] += parseFloat(b.bookingAmount); monthlyCount[m] += 1; });
+            labels = monthNames;
+            values = monthly;
+            counts = monthlyCount;
+            trendTitle = '📈 Revenue by Month';
         } else {
-            const daily = {}, dailyCount = {};
+            // "Yearly" view = every year present in the data, one bar per
+            // year, so you can compare this year against previous years.
+            const yearly = {}, yearlyCount = {};
             data.forEach(b => {
-                const d = new Date(b.bookingTime).getDate();
-                daily[d] = (daily[d] || 0) + parseFloat(b.bookingAmount);
-                dailyCount[d] = (dailyCount[d] || 0) + 1;
+                const y = new Date(b.bookingTime).getFullYear();
+                yearly[y] = (yearly[y] || 0) + parseFloat(b.bookingAmount);
+                yearlyCount[y] = (yearlyCount[y] || 0) + 1;
             });
-            labels = Object.keys(daily).map(d => `Day ${d}`);
-            values = Object.values(daily);
-            counts = Object.values(dailyCount);
+            const sortedYears = Object.keys(yearly).sort();
+            labels = sortedYears;
+            values = sortedYears.map(y => yearly[y]);
+            counts = sortedYears.map(y => yearlyCount[y]);
+            trendTitle = '📈 Revenue by Year';
         }
 
         // Combo chart: revenue as bars, booking count as an overlaid line on
@@ -3363,7 +3795,7 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { labels: { color: '#fff' } },
-                    title: { display: true, text: '📈 Revenue vs Bookings', color: '#fff' }
+                    title: { display: true, text: trendTitle, color: '#fff' }
                 },
                 scales: {
                     y: { position: 'left', grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#ccc' }, title: { display: true, text: 'Revenue', color: '#2ecc71' } },
@@ -3537,21 +3969,36 @@
             expensesRef.doc(newExpense.expenseId).set(newExpense)
                 .catch(err => { console.error(err); addNotification('Could not sync expense to cloud - check internet', 'error'); });
         }
-        addNotification(`Expense of ${settings.currency} ${amount.toLocaleString()} added (${category})`, 'success');
+        addNotification(`Expense of ${settings.currency} ${amount.toLocaleString()} added (${category})`, 'success', 'expenses');
 
         document.getElementById('expenseAmount').value = '';
         document.getElementById('expenseDescription').value = '';
         renderExpenditure();
     }
 
-    function deleteExpense(expenseId) {
-        if (!confirm('Delete this expense entry?')) return;
-        expenses = expenses.filter(e => e.expenseId !== expenseId);
+    // Expenses can be corrected if a mistake was made, but are never deleted
+    // outright - this keeps the expense log a reliable audit trail.
+    function editExpense(expenseId) {
+        const e = expenses.find(x => x.expenseId === expenseId);
+        if (!e) return;
+
+        const newAmount = prompt('Amount (' + settings.currency + '):', e.amount);
+        if (newAmount === null) return; // cancelled
+        const parsedAmount = parseFloat(newAmount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) { addNotification('Please enter a valid amount', 'error'); return; }
+
+        const newDescription = prompt('Description / Notes:', e.description || '');
+        if (newDescription === null) return;
+
+        e.amount = parsedAmount;
+        e.description = newDescription.trim();
+        e.editedAt = new Date().toISOString();
+
         if (expensesRef) {
-            expensesRef.doc(expenseId).delete()
-                .catch(err => { console.error(err); addNotification('Could not remove expense from cloud - check internet', 'error'); });
+            expensesRef.doc(expenseId).set(e)
+                .catch(err => { console.error(err); addNotification('Could not sync expense edit to cloud - check internet', 'error'); });
         }
-        addNotification('Expense removed', 'info');
+        addNotification('Expense updated', 'success', 'expenses');
         renderExpenditure();
     }
 
@@ -3630,12 +4077,12 @@
         let tbody = '';
         periodExpenses.slice().sort((a,b) => (b.date + (b.createdAt||'')).localeCompare(a.date + (a.createdAt||''))).forEach(e => {
             tbody += `<tr>
-                <td>${new Date(e.date).toLocaleDateString()}</td>
+                <td>${new Date(e.date).toLocaleDateString()}${e.editedAt ? '<div style="font-size:10px; color:var(--text-secondary);">(edited)</div>' : ''}</td>
                 <td>${categoryIcons[e.category] || '📦'} ${e.category}</td>
                 <td>${e.description || '-'}</td>
                 <td>${e.paymentMethod || '-'}</td>
                 <td style="font-weight:bold; color:var(--error-color);">${settings.currency} ${e.amount.toLocaleString()}</td>
-                <td><button onclick="deleteExpense('${e.expenseId}')" style="background:var(--error-color); padding:6px 10px; font-size:12px;">🗑️ Delete</button></td>
+                <td><button onclick="editExpense('${e.expenseId}')" style="background:var(--accent-color); padding:6px 10px; font-size:12px;">✏️ Edit</button></td>
             </tr>`;
         });
         document.getElementById('expenseTableBody').innerHTML = tbody || '<tr><td colspan="6" style="text-align:center;">No expenses recorded for this period</td></tr>';
@@ -3866,7 +4313,7 @@
         updateFooterWidget();
         if (activeTab === 'dues') renderDues();
         hideModal('editBookingModal');
-        addNotification(`Booking for ${bookings[i].fullName} updated`, 'success');
+        addNotification(`Booking for ${bookings[i].fullName} updated`, 'success', 'bookings');
     }
 
     // ========== CALENDAR ==========
@@ -4018,7 +4465,7 @@
             if (activeTab === 'dues') renderDues();
         }, err => {
             console.error('Cloud sync error:', err);
-            addNotification('Cloud sync error - check your internet connection', 'error');
+            addNotification('Cloud sync error - check your internet connection', 'error', 'sync');
         });
     }
 
@@ -4031,7 +4478,7 @@
             if (activeTab === 'expenditure') renderExpenditure();
         }, err => {
             console.error('Expense cloud sync error:', err);
-            addNotification('Expense cloud sync error - check your internet connection', 'error');
+            addNotification('Expense cloud sync error - check your internet connection', 'error', 'sync');
         });
     }
 
@@ -4179,17 +4626,47 @@
             let a = document.createElement('a'); a.download = 'GlobalRush_Receipt_' + document.getElementById('receiptBookingId').textContent + '.png'; a.href = c.toDataURL(); a.click();
         }); 
     }
+    // Shares the receipt as an IMAGE on WhatsApp (not plain text). It renders
+    // the receipt card to a PNG, then hands it to the device's native share
+    // sheet (navigator.share with a file) so the person can pick WhatsApp and
+    // send the image directly. Browsers/devices that can't share files (most
+    // desktop browsers) fall back to downloading the PNG and opening
+    // WhatsApp so it can be attached manually.
     function shareReceiptWhatsApp() {
-        const id = document.getElementById('receiptBookingId').textContent;
-        const nameTeam = document.getElementById('receiptNameAndTeam').textContent;
-        const slot = document.getElementById('receiptBookingTime').textContent;
-        const amount = document.getElementById('receiptSubtotalAmt').textContent;
-        const due = document.getElementById('receiptDueAmt').textContent;
-        const status = document.getElementById('receiptPaymentStatus').textContent;
-        const duration = document.getElementById('receiptDuration').textContent;
-        const arenaName = document.getElementById('receiptArenaName').textContent;
-        const msg = `🏟️ *${arenaName}*\n━━━━━━━━━━━━━━\n✅ *Booking Receipt*\n\n📋 ID: ${id}\n👤 ${nameTeam}\n📅 Slot: ${slot}\n⏱️ Duration: ${duration}\n💰 Amount: ${amount}\n⚖️ Due: ${due}\n💳 Status: ${status}\n\nThank you for booking!`;
-        window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+        const btn = document.getElementById('shareWhatsAppBtn');
+        const originalLabel = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparing image...'; }
+
+        html2canvas(document.querySelector('.receipt-modal-content'), { backgroundColor: '#1a1a2e', scale: 2 }).then(canvas => {
+            const fileName = 'GlobalRush_Receipt_' + document.getElementById('receiptBookingId').textContent + '.png';
+            canvas.toBlob(async (blob) => {
+                if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+                if (!blob) { addNotification('Could not generate the receipt image', 'error'); return; }
+                const file = new File([blob], fileName, { type: 'image/png' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: 'Booking Receipt', text: 'Booking Receipt' });
+                        return;
+                    } catch (err) {
+                        if (err && err.name === 'AbortError') return; // user cancelled the share sheet
+                        // fall through to the download fallback below
+                    }
+                }
+
+                // Fallback for browsers without file-sharing support: download
+                // the receipt image, then open WhatsApp so it can be attached.
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                addNotification('Receipt image saved - attach it to WhatsApp manually', 'info');
+                window.open('https://wa.me/', '_blank');
+            }, 'image/png');
+        }).catch(() => {
+            if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+            addNotification('Could not generate the receipt image', 'error');
+        });
     }
     function copyReceiptText() {
         const id = document.getElementById('receiptBookingId').textContent;
@@ -4214,12 +4691,12 @@
         if (el) el.textContent = dateFilter ? new Date(dateFilter).toLocaleDateString('en-US',{dateStyle:'long'}) + ' — Booking Report' : 'All Bookings Report';
         window.print();
     }
-    function toggleDarkMode() { 
-        document.body.classList.toggle('dark-mode'); 
-        // Fix: update button icon to reflect state
-        const btn = document.querySelector('.quick-action-btn[onclick*="toggleDarkMode"]');
-        if (btn) btn.title = document.body.classList.contains('dark-mode') ? 'Disable Dark Mode' : 'Enable Dark Mode';
-        btn.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+    function toggleDarkMode() {
+        document.getElementById('appWrapper').classList.toggle('dark-mode');
+        const isDark = document.getElementById('appWrapper').classList.contains('dark-mode');
+        localStorage.setItem('arenaDarkMode', isDark ? '1' : '0');
+        const toggle = document.getElementById('darkModeToggle');
+        if (toggle) toggle.checked = isDark;
     }
     function showSystemSettings() { toggleSettings(); }
 </script>
